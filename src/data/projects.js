@@ -21,7 +21,6 @@ export const projects = names.map((name, i) => ({
 
 export const profile = {
   name: 'Devadit',
-  role: 'Builder · Student · Placeholder role',
   // Contact links on the final screen, in display order. A link with no url is
   // left out, so the resume appears as soon as its file is added.
   links: [

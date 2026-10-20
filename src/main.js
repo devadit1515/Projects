@@ -447,7 +447,6 @@ async function setSound(on) {
 
 function revealIntro() {
   const chars = splitChars($('[data-split]'));
-  $('[data-role]').textContent = profile.role;
   gsap.set(els.intro, { visibility: 'visible' });
   gsap
     .timeline()
