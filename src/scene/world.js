@@ -107,12 +107,6 @@ class ScenePass extends Pass {
     this.target.setSize(width, height);
   }
 
-  setSamples(samples) {
-    if (this.target.samples === samples) return;
-    this.target.samples = samples;
-    this.target.dispose();
-  }
-
   render(renderer, writeBuffer) {
     renderer.setRenderTarget(this.target);
     renderer.render(this.scene, this.camera);
@@ -187,8 +181,6 @@ export class World {
     this.speed = 0;
     this.lastProgress = 0;
     this.hoverZoom = 0;
-    this.resolutionScale = 1;
-    this.frameStats = { time: 0, frames: 0, slow: 0, fast: 0 };
 
     this.raycaster = new Raycaster();
     this.tmp = {
@@ -245,53 +237,10 @@ export class World {
     return (lo + (progress - map[lo]) / span) / n;
   }
 
-  // Render resolution: the screen's pixel ratio, capped by a total pixel
-  // budget so large displays aren't drawn at more detail than the GPU can keep
-  // up with, then scaled by whatever adapt() has settled on.
-  #pixelRatio() {
-    const area = window.innerWidth * window.innerHeight;
-    const cap = this.quality === 'low' ? 1.25 : 1.75;
-    const budget = this.quality === 'low' ? 1.6e6 : 3.6e6;
-    const fit = Math.max(1, Math.sqrt(budget / area));
-    return Math.max(0.7, Math.min(window.devicePixelRatio, cap, fit) * this.resolutionScale);
-  }
-
-  // Called once per frame with the real frame time. If the frame rate stays
-  // low, drop the resolution a step; once it has been smooth for a while,
-  // step back up.
-  adapt(seconds) {
-    if (seconds > 0.25) return; // tab switch or stall, not a real frame
-    const s = this.frameStats;
-    s.time += seconds;
-    s.frames++;
-    if (s.time < 1) return;
-    const fps = s.frames / s.time;
-    s.time = 0;
-    s.frames = 0;
-    if (fps < 50) {
-      s.fast = 0;
-      if (++s.slow >= 2 && this.resolutionScale > 0.6) {
-        s.slow = 0;
-        this.resolutionScale *= 0.85;
-        this.resize();
-      }
-    } else {
-      s.slow = 0;
-      if (fps > 57 && this.resolutionScale < 1 && ++s.fast >= 4) {
-        s.fast = 0;
-        this.resolutionScale = Math.min(1, this.resolutionScale / 0.85);
-        this.resize();
-      }
-    }
-  }
-
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const ratio = this.#pixelRatio();
-    // Dense screens already smooth edges through resolution, so they need
-    // less multisampling.
-    if (this.quality !== 'low') this.scenePass.setSamples(ratio >= 1.4 ? 2 : 4);
+    const ratio = Math.min(window.devicePixelRatio, this.quality === 'low' ? 1.25 : 1.75);
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(ratio);

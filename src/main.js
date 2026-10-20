@@ -588,10 +588,8 @@ async function start() {
 
   let last = performance.now();
   const frame = (now) => {
-    const elapsed = (now - last) / 1000;
-    const dt = Math.min(elapsed, 1 / 20);
+    const dt = Math.min((now - last) / 1000, 1 / 20);
     last = now;
-    world.adapt(elapsed);
     lenis.raf(now);
     world.progress = lenis.limit > 0 ? clamp(lenis.animatedScroll / lenis.limit, 0, 1) : 0;
     world.update(dt);
