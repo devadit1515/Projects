@@ -27,7 +27,7 @@ export const profile = {
   links: [
     { label: 'GitHub', url: 'https://github.com/devadit1515' },
     { label: 'LinkedIn', url: 'https://www.linkedin.com/in/devadit-jain-562080257' },
-    { label: 'Resume', url: null },
+    { label: 'Resume', url: '/Devadit-Jain-Resume.pdf' },
     { label: 'Instagram', url: 'https://www.instagram.com/devadit15/' },
   ],
 };

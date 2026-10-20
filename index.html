@@ -21,7 +21,7 @@
     <h1 class="intro__title" data-split>Devadit</h1>
     <p class="intro__role" data-intro-item data-role></p>
     <button class="intro__enter" type="button" data-enter data-intro-item>
-      <span>Enter the valley</span>
+      <span>Enter</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </button>
     <p class="intro__hint" data-intro-item>Scroll to travel<span class="intro__hint-extra"> &nbsp;·&nbsp; Click a monument to open it</span></p>
@@ -62,9 +62,13 @@
   <div class="index" data-index data-lenis-prevent role="dialog" aria-modal="true" aria-label="Project index" hidden>
     <div class="index__head">
       <span class="index__label">Index</span>
+      <span class="index__count" data-index-count></span>
       <button type="button" class="pill" data-close-index data-decode-hover>Close</button>
     </div>
-    <ol class="index__list" data-index-list></ol>
+    <div class="index__body">
+      <aside class="index__preview" data-index-preview aria-hidden="true"></aside>
+      <ol class="index__list" data-index-list></ol>
+    </div>
   </div>
 
   <div class="detail" data-detail role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>

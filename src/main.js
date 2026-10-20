@@ -274,20 +274,60 @@ function openProject(i) {
 
 /* ------------------------------------------------------------------- Index */
 
+const rightArrow = '<svg class="index__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
 function buildIndex() {
+  $('[data-index-count]').textContent = `(${pad(projects.length)})`;
   els.indexList.innerHTML = projects
     .map(
       (p, i) => `
       <li class="index__row" style="--c:${p.color}">
-        <button type="button" data-go="${i}">
+        <button type="button" data-go="${i}" data-preview="${i}" aria-label="${esc(p.title)}: ${esc(p.tagline)}">
           <span class="index__num">${pad(i + 1)}</span>
           <span class="index__title">${esc(p.title)}</span>
+          <span class="index__tags">${p.tags.slice(0, 2).map(esc).join(' · ')}</span>
           <span class="index__year">${esc(p.year)}</span>
-          <span class="index__tagline">${esc(p.tagline)}</span>
+          ${rightArrow}
         </button>
       </li>`,
     )
     .join('');
+
+  const preview = (e) => {
+    const row = e.target.closest('[data-preview]');
+    if (row) showPreview(+row.dataset.preview);
+  };
+  els.indexList.addEventListener('pointerover', preview);
+  els.indexList.addEventListener('focusin', preview);
+}
+
+let previewIndex = -1;
+function showPreview(i) {
+  if (i === previewIndex) return;
+  previewIndex = i;
+  $$('.index__row', els.indexList).forEach((row, r) => row.classList.toggle('is-preview', r === i));
+  const panel = $('[data-index-preview]');
+  const p = projects[i];
+  panel.style.setProperty('--c', p.color);
+  panel.innerHTML = `
+    <div class="index__art"><span class="index__art-label">Image placeholder</span><span class="index__art-num">${pad(i + 1)}</span></div>
+    <p class="index__p-title">${esc(p.title)}</p>
+    <p class="index__p-tagline">${esc(p.tagline)}</p>
+    <p class="index__p-meta">${[p.year, ...p.tags].map(esc).join(' · ')}</p>`;
+  gsap.fromTo(
+    panel.children,
+    { opacity: 0, y: 10 },
+    { opacity: 1, y: 0, duration: 0.55, stagger: 0.05, ease: 'power3.out', overwrite: true },
+  );
+}
+
+// Mark the project the camera is standing at.
+function markCurrent() {
+  const current = world?.activeIndex ?? -1;
+  $$('.index__row', els.indexList).forEach((row, r) => {
+    $('.index__here', row)?.remove();
+    if (r === current) $('.index__title', row).insertAdjacentHTML('beforeend', '<span class="index__here">Here</span>');
+  });
 }
 
 function openIndex() {
@@ -297,9 +337,13 @@ function openIndex() {
   els.index.hidden = false;
   document.body.classList.add('index-open');
   lenis.stop();
+  markCurrent();
+  previewIndex = -1;
+  showPreview(Math.max(0, world.activeIndex));
   gsap.fromTo(els.index, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' });
-  gsap.from($$('.index__row', els.index), { y: 40, opacity: 0, duration: 0.9, stagger: 0.05, ease: 'expo.out', delay: 0.1 });
-  $$('.index__num, .index__year, .index__label', els.index).forEach((el) => decode(el, 0.7));
+  gsap.from($$('.index__row', els.index), { y: 24, opacity: 0, duration: 0.8, stagger: 0.04, ease: 'expo.out', delay: 0.1 });
+  gsap.from('.index__preview', { opacity: 0, x: -20, duration: 0.9, ease: 'expo.out', delay: 0.15 });
+  $$('.index__num, .index__year, .index__label, .index__count', els.index).forEach((el) => decode(el, 0.7));
   $('[data-close-index]').focus({ preventScroll: true });
   audio.whoosh(true);
 }
@@ -512,6 +556,7 @@ function showFallback() {
   els.intro.remove();
   canvas.remove();
   buildIndex();
+  showPreview(0);
   els.index.hidden = false;
   $('[data-close-index]').remove();
   $('.index__label').textContent = `${profile.name} — Projects`;
