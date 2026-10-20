@@ -918,6 +918,11 @@ body.index-open .rail {
   z-index: 60;
   pointer-events: none;
   display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.cursor.is-ready {
+  opacity: 1;
 }
 @media (hover: hover) and (pointer: fine) {
   .cursor {
@@ -932,6 +937,7 @@ body.index-open .rail {
   position: absolute;
   top: 0;
   left: 0;
+  will-change: transform;
 }
 .cursor__dot,
 .cursor__ring {

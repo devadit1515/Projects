@@ -8,13 +8,14 @@ import {
   PerspectiveCamera,
   Raycaster,
   Scene,
+  ShaderMaterial,
   Vector2,
   Vector3,
   WebGLRenderer,
   WebGLRenderTarget,
 } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -53,13 +54,16 @@ const FinishShader = {
       float r2 = dot(c, c);
       // Lens fringing, which opens up along with a radial blur when moving fast.
       vec2 shift = c * r2 * (0.012 + uSpeed * 0.05);
-      float blur = uSpeed * 0.012;
-      vec3 col = vec3(0.0);
-      for (int i = 0; i < 4; i++) {
-        vec2 uv = vUv - c * blur * float(i);
-        col += vec3(texture2D(tDiffuse, uv + shift).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - shift).b);
+      vec3 col = vec3(texture2D(tDiffuse, vUv + shift).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - shift).b);
+      // The extra taps only run while moving fast.
+      if (uSpeed > 0.002) {
+        float blur = uSpeed * 0.012;
+        for (int i = 1; i < 4; i++) {
+          vec2 uv = vUv - c * blur * float(i);
+          col += vec3(texture2D(tDiffuse, uv + shift).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - shift).b);
+        }
+        col *= 0.25;
       }
-      col *= 0.25;
       col *= 1.0 - smoothstep(0.12, 0.62, r2) * 0.55;
       col += (hash(vUv * uResolution + fract(uTime * 7.0) * 91.0) - 0.5) * 0.05;
       gl_FragColor = vec4(col, 1.0);
@@ -79,6 +83,43 @@ const SanitizeShader = {
       gl_FragColor = vec4(bad ? vec3(0.0) : min(c, vec3(32.0)), 1.0);
     }`,
 };
+
+// Renders the scene into its own multisampled target, then scrubs it into the
+// composer's plain buffer. Only this step pays for anti-aliasing; the bloom
+// and grading passes after it work on ordinary single-sample buffers.
+class ScenePass extends Pass {
+  constructor(scene, camera, samples) {
+    super();
+    this.scene = scene;
+    this.camera = camera;
+    this.target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples });
+    this.material = new ShaderMaterial({
+      uniforms: { tDiffuse: { value: this.target.texture } },
+      vertexShader: SanitizeShader.vertexShader,
+      fragmentShader: SanitizeShader.fragmentShader,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.quad = new FullScreenQuad(this.material);
+  }
+
+  setSize(width, height) {
+    this.target.setSize(width, height);
+  }
+
+  setSamples(samples) {
+    if (this.target.samples === samples) return;
+    this.target.samples = samples;
+    this.target.dispose();
+  }
+
+  render(renderer, writeBuffer) {
+    renderer.setRenderTarget(this.target);
+    renderer.render(this.scene, this.camera);
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.quad.render(renderer);
+  }
+}
 
 const DWELL_WIDTH = 0.018;
 const DWELL_STRENGTH = 3.2;
@@ -119,10 +160,10 @@ export class World {
     this.#buildScrollMap(layout);
 
     const size = new Vector2(window.innerWidth, window.innerHeight);
-    const target = new WebGLRenderTarget(size.x, size.y, { type: HalfFloatType, samples: quality === 'low' ? 0 : 4 });
+    const target = new WebGLRenderTarget(size.x, size.y, { type: HalfFloatType });
     this.composer = new EffectComposer(this.renderer, target);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.composer.addPass(new ShaderPass(SanitizeShader));
+    this.scenePass = new ScenePass(this.scene, this.camera, quality === 'low' ? 0 : 4);
+    this.composer.addPass(this.scenePass);
     this.bloom = new UnrealBloomPass(size, 0.55, 0.5, 0.95);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -146,6 +187,8 @@ export class World {
     this.speed = 0;
     this.lastProgress = 0;
     this.hoverZoom = 0;
+    this.resolutionScale = 1;
+    this.frameStats = { time: 0, frames: 0, slow: 0, fast: 0 };
 
     this.raycaster = new Raycaster();
     this.tmp = {
@@ -202,10 +245,53 @@ export class World {
     return (lo + (progress - map[lo]) / span) / n;
   }
 
+  // Render resolution: the screen's pixel ratio, capped by a total pixel
+  // budget so large displays aren't drawn at more detail than the GPU can keep
+  // up with, then scaled by whatever adapt() has settled on.
+  #pixelRatio() {
+    const area = window.innerWidth * window.innerHeight;
+    const cap = this.quality === 'low' ? 1.25 : 1.75;
+    const budget = this.quality === 'low' ? 1.6e6 : 3.6e6;
+    const fit = Math.max(1, Math.sqrt(budget / area));
+    return Math.max(0.7, Math.min(window.devicePixelRatio, cap, fit) * this.resolutionScale);
+  }
+
+  // Called once per frame with the real frame time. If the frame rate stays
+  // low, drop the resolution a step; once it has been smooth for a while,
+  // step back up.
+  adapt(seconds) {
+    if (seconds > 0.25) return; // tab switch or stall, not a real frame
+    const s = this.frameStats;
+    s.time += seconds;
+    s.frames++;
+    if (s.time < 1) return;
+    const fps = s.frames / s.time;
+    s.time = 0;
+    s.frames = 0;
+    if (fps < 50) {
+      s.fast = 0;
+      if (++s.slow >= 2 && this.resolutionScale > 0.6) {
+        s.slow = 0;
+        this.resolutionScale *= 0.85;
+        this.resize();
+      }
+    } else {
+      s.slow = 0;
+      if (fps > 57 && this.resolutionScale < 1 && ++s.fast >= 4) {
+        s.fast = 0;
+        this.resolutionScale = Math.min(1, this.resolutionScale / 0.85);
+        this.resize();
+      }
+    }
+  }
+
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const ratio = Math.min(window.devicePixelRatio, this.quality === 'low' ? 1.25 : 1.75);
+    const ratio = this.#pixelRatio();
+    // Dense screens already smooth edges through resolution, so they need
+    // less multisampling.
+    if (this.quality !== 'low') this.scenePass.setSamples(ratio >= 1.4 ? 2 : 4);
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(ratio);

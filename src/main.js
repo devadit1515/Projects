@@ -152,17 +152,28 @@ function showCard(i) {
   });
 }
 
+// Write a style only when its value changes, so idle frames don't make the
+// browser restyle anything.
+const styleCache = new WeakMap();
+function setStyle(el, prop, value) {
+  let cache = styleCache.get(el);
+  if (!cache) styleCache.set(el, (cache = {}));
+  if (cache[prop] === value) return;
+  cache[prop] = value;
+  el.style[prop] = value;
+}
+
 let ticks = [];
 function updateHud(p) {
-  els.railFill.style.transform = `scaleY(${p})`;
+  setStyle(els.railFill, 'transform', `scaleY(${p.toFixed(4)})`);
   ticks.forEach((tick, i) => {
     tick.classList.toggle('is-passed', p >= world.projectStops[i] - 0.002);
     tick.classList.toggle('is-active', i === world.activeIndex);
   });
 
   const outro = clamp((p - 0.955) / 0.03, 0, 1);
-  els.outro.style.opacity = outro;
-  els.outro.style.visibility = outro > 0.01 ? 'visible' : 'hidden';
+  setStyle(els.outro, 'opacity', outro.toFixed(3));
+  setStyle(els.outro, 'visibility', outro > 0.01 ? 'visible' : 'hidden');
   if (outro > 0.01 !== outroShown) {
     outroShown = outro > 0.01;
     if (outroShown) decode($('[data-outro-kicker]'), 0.9);
@@ -173,7 +184,7 @@ function updateHud(p) {
     shownCard = card;
     showCard(card);
   }
-  els.hint.style.opacity = entered && p < 0.008 ? 1 : 0;
+  setStyle(els.hint, 'opacity', entered && p < 0.008 ? '1' : '0');
 }
 
 /* ------------------------------------------------------------------ Detail */
@@ -356,18 +367,25 @@ function setupCursor() {
   document.body.classList.add('has-cursor');
   const follow = $('[data-cursor-follow]');
   const lead = $('[data-cursor-lead]');
-  const followX = gsap.quickTo(follow, 'x', { duration: 0.45, ease: 'power3' });
-  const followY = gsap.quickTo(follow, 'y', { duration: 0.45, ease: 'power3' });
-  const leadX = gsap.quickTo(lead, 'x', { duration: 0.08, ease: 'power3' });
-  const leadY = gsap.quickTo(lead, 'y', { duration: 0.08, ease: 'power3' });
+  // The dot replaces the system cursor, so it tracks the pointer exactly; only
+  // the ring trails, and only slightly.
+  const followX = gsap.quickTo(follow, 'x', { duration: 0.18, ease: 'power2' });
+  const followY = gsap.quickTo(follow, 'y', { duration: 0.18, ease: 'power2' });
   let overLink = false;
-  window.addEventListener('pointermove', (e) => {
-    followX(e.clientX);
-    followY(e.clientY);
-    leadX(e.clientX);
-    leadY(e.clientY);
-    overLink = !!e.target.closest('a, button');
-  });
+  window.addEventListener(
+    'pointermove',
+    (e) => {
+      lead.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+      followX(e.clientX);
+      followY(e.clientY);
+      overLink = !!e.target.closest('a, button');
+      if (!els.cursor.classList.contains('is-ready')) {
+        gsap.set(follow, { x: e.clientX, y: e.clientY });
+        els.cursor.classList.add('is-ready');
+      }
+    },
+    { passive: true },
+  );
   let wasOpen = false;
   return () => {
     const open = world.hoverIndex >= 0 && detailIndex < 0 && !indexOpen;
@@ -570,8 +588,10 @@ async function start() {
 
   let last = performance.now();
   const frame = (now) => {
-    const dt = Math.min((now - last) / 1000, 1 / 20);
+    const elapsed = (now - last) / 1000;
+    const dt = Math.min(elapsed, 1 / 20);
     last = now;
+    world.adapt(elapsed);
     lenis.raf(now);
     world.progress = lenis.limit > 0 ? clamp(lenis.animatedScroll / lenis.limit, 0, 1) : 0;
     world.update(dt);
