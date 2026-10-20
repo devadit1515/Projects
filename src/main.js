@@ -1,6 +1,7 @@
 import Lenis from 'lenis';
 import gsap from 'gsap';
 import { World } from './scene/world.js';
+import { Ambience } from './audio.js';
 import { projects, profile } from './data/projects.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -48,6 +49,48 @@ let shownCard = -2;
 let detailIndex = -1;
 let indexOpen = false;
 let returnFocus = null;
+let outroShown = false;
+const audio = new Ambience();
+
+const storage = {
+  get(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      /* private mode: preference just isn't remembered */
+    }
+  },
+};
+
+// Mono labels scramble through glyphs before settling on their text.
+const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/+*';
+function decode(el, duration = 0.6) {
+  if (!el || reducedMotion) return;
+  const text = el.dataset.text ?? el.textContent;
+  el.dataset.text = text;
+  const token = (el._decode = (el._decode || 0) + 1);
+  const start = performance.now();
+  const step = (now) => {
+    if (el._decode !== token) return;
+    const t = Math.min(1, (now - start) / (duration * 1000));
+    const settled = Math.floor(t * text.length);
+    let out = '';
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      out += i < settled || /\s/.test(c) ? c : GLYPHS[(Math.random() * GLYPHS.length) | 0];
+    }
+    el.textContent = out;
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 
 function splitChars(el) {
   const text = el.textContent;
@@ -100,8 +143,8 @@ function cardMarkup(i) {
   const p = projects[i];
   return `
     <div class="card__meta" data-fade>
-      <span class="card__num">${pad(i + 1)}</span><span>/ ${pad(projects.length)}</span>
-      <span class="card__swatch" style="--c:${p.color}"></span><span>${esc(p.year)}</span>
+      <span class="card__num" data-decode>${pad(i + 1)}</span><span data-decode>/ ${pad(projects.length)}</span>
+      <span class="card__swatch" style="--c:${p.color}"></span><span data-decode>${esc(p.year)}</span>
     </div>
     <h2 class="card__title"><span class="mask"><span>${esc(p.title)}</span></span></h2>
     <p class="card__tagline" data-fade>${esc(p.tagline)}</p>
@@ -121,6 +164,8 @@ function showCard(i) {
     els.card.classList.toggle('is-right', world.beacons.items[i].side < 0);
     gsap.from($$('.mask > *', els.card), { yPercent: 110, duration: 1.1, ease: 'expo.out' });
     gsap.from($$('[data-fade]', els.card), { opacity: 0, y: 14, duration: 0.9, stagger: 0.07, delay: 0.1, ease: 'power3.out' });
+    $$('[data-decode]', els.card).forEach((el) => decode(el, 0.7));
+    audio.chime(i);
   });
 }
 
@@ -135,6 +180,10 @@ function updateHud(p) {
   const outro = clamp((p - 0.955) / 0.03, 0, 1);
   els.outro.style.opacity = outro;
   els.outro.style.visibility = outro > 0.01 ? 'visible' : 'hidden';
+  if (outro > 0.01 !== outroShown) {
+    outroShown = outro > 0.01;
+    if (outroShown) decode($('[data-outro-kicker]'), 0.9);
+  }
 
   const card = outro > 0 ? -1 : world.activeIndex;
   if (entered && card !== shownCard) {
@@ -151,8 +200,8 @@ function detailMarkup(i) {
   const next = (i + 1) % projects.length;
   return `
     <div class="detail__top" data-reveal>
-      <span class="detail__num">Project ${pad(i + 1)} / ${pad(projects.length)}</span>
-      <button class="pill" type="button" data-close-detail>Close</button>
+      <span class="detail__num" data-decode>Project ${pad(i + 1)} / ${pad(projects.length)}</span>
+      <button class="pill" type="button" data-close-detail data-decode-hover>Close</button>
     </div>
     <h2 class="detail__title" id="detail-title" data-reveal>${esc(p.title)}</h2>
     <p class="detail__tagline" data-reveal>${esc(p.tagline)}</p>
@@ -192,14 +241,17 @@ function openDetail(i) {
       { clipPath: 'inset(0% 0% 0% 0%)', duration: reducedMotion ? 0.01 : 1, ease: 'expo.inOut' },
       0,
     )
-    .from($$('[data-reveal]', els.detailPanel), { y: 28, opacity: 0, duration: 0.9, stagger: 0.05, ease: 'power3.out' }, 0.45);
+    .from($$('[data-reveal]', els.detailPanel), { y: 28, opacity: 0, duration: 0.9, stagger: 0.05, ease: 'power3.out' }, 0.45)
+    .add(() => decode($('[data-decode]', els.detailPanel), 0.8), 0.45);
   $('[data-close-detail]', els.detailPanel).focus({ preventScroll: true });
+  audio.whoosh(true);
 }
 
 function closeDetail(then) {
   if (detailIndex < 0) return;
   world.focusIndex = -1;
   document.body.classList.remove('detail-open');
+  audio.whoosh(false);
   gsap
     .timeline({
       onComplete: () => {
@@ -247,12 +299,15 @@ function openIndex() {
   lenis.stop();
   gsap.fromTo(els.index, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' });
   gsap.from($$('.index__row', els.index), { y: 40, opacity: 0, duration: 0.9, stagger: 0.05, ease: 'expo.out', delay: 0.1 });
+  $$('.index__num, .index__year, .index__label', els.index).forEach((el) => decode(el, 0.7));
   $('[data-close-index]').focus({ preventScroll: true });
+  audio.whoosh(true);
 }
 
 function closeIndex(then) {
   if (!indexOpen) return;
   document.body.classList.remove('index-open');
+  audio.whoosh(false);
   gsap.to(els.index, {
     opacity: 0,
     duration: 0.4,
@@ -286,11 +341,62 @@ function setupCursor() {
     leadY(e.clientY);
     overLink = !!e.target.closest('a, button');
   });
+  let wasOpen = false;
   return () => {
     const open = world.hoverIndex >= 0 && detailIndex < 0 && !indexOpen;
     els.cursor.classList.toggle('is-open', open);
     els.cursor.classList.toggle('is-link', overLink && !open);
+    if (open && !wasOpen) audio.tick();
+    wasOpen = open;
   };
+}
+
+/* ------------------------------------------------------- Micro-interactions */
+
+function setupInteractions() {
+  // Buttons lean toward the cursor while it is over them, then spring back.
+  let magnet = null;
+  const release = (el) => gsap.to(el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)', overwrite: 'auto' });
+  if (finePointer && !reducedMotion) {
+    window.addEventListener('pointermove', (e) => {
+      const el = e.target.closest('.pill, .intro__enter');
+      if (magnet && magnet !== el) release(magnet);
+      magnet = el;
+      if (!el) return;
+      // Measure without the current pull so the offset doesn't feed back on itself.
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2 - (gsap.getProperty(el, 'x') || 0);
+      const cy = r.top + r.height / 2 - (gsap.getProperty(el, 'y') || 0);
+      const strength = el.classList.contains('intro__enter') ? 0.3 : 0.4;
+      gsap.to(el, {
+        x: (e.clientX - cx) * strength,
+        y: (e.clientY - cy) * strength,
+        duration: 0.4,
+        ease: 'power3.out',
+        overwrite: 'auto',
+      });
+    });
+  }
+
+  // Hover: a soft tick, and short labels decode.
+  document.addEventListener('pointerover', (e) => {
+    const target = e.target.closest('a, button');
+    if (!target || target.contains(e.relatedTarget)) return;
+    audio.tick();
+    if (target.matches('[data-decode-hover]')) decode(target, 0.45);
+  });
+
+  document.addEventListener('visibilitychange', () => audio.setHidden(document.hidden));
+}
+
+const soundButton = $('[data-sound]');
+async function setSound(on) {
+  soundButton.classList.toggle('is-on', on);
+  soundButton.setAttribute('aria-pressed', String(on));
+  $('[data-sound-label]').textContent = on ? 'Sound on' : 'Sound off';
+  storage.set('devadit-sound', on ? 'on' : 'off');
+  if (on) await audio.enable();
+  else audio.disable();
 }
 
 /* ------------------------------------------------------------- Intro/flow */
@@ -304,6 +410,7 @@ function revealIntro() {
     .to(canvas, { opacity: 1, duration: 1.8, ease: 'power2.out' })
     .from(chars, { yPercent: 115, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, 0.25)
     .from($$('[data-intro-item]'), { opacity: 0, y: 16, duration: 1, stagger: 0.08, ease: 'power3.out' }, 0.7)
+    .add(() => decode($('[data-intro-kicker]'), 1), 0.7)
     .add(() => {
       window.addEventListener('wheel', enter, { once: true, passive: true });
       window.addEventListener('touchmove', enter, { once: true, passive: true });
@@ -316,6 +423,8 @@ function revealIntro() {
     entered = true;
     window.removeEventListener('wheel', enter);
     window.removeEventListener('touchmove', enter);
+    // Resume sound for visitors who turned it on last time.
+    if (storage.get('devadit-sound') === 'on') setSound(true);
     gsap
       .timeline()
       .to(chars, { yPercent: -115, duration: 0.8, stagger: 0.03, ease: 'expo.in' })
@@ -334,6 +443,7 @@ function showHud() {
   gsap.set([els.hud, els.rail, els.hint], { visibility: 'visible' });
   gsap.from(els.hud.children, { y: -16, opacity: 0, duration: 1, stagger: 0.1, ease: 'power3.out' });
   gsap.from(els.rail, { opacity: 0, duration: 1.2 });
+  decode($('.brand__sub'), 0.9);
   shownCard = -2;
 }
 
@@ -349,10 +459,11 @@ function bindEvents() {
   });
 
   document.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-open-project], [data-go], [data-next-project], [data-close-detail], [data-open-index], [data-close-index], [data-go-contact], [data-home]');
+    const target = e.target.closest('[data-open-project], [data-go], [data-next-project], [data-close-detail], [data-open-index], [data-close-index], [data-go-contact], [data-home], [data-sound]');
     if (!target) return;
     const d = target.dataset;
-    if (d.openProject !== undefined) openProject(+d.openProject);
+    if (d.sound !== undefined) setSound(!audio.enabled);
+    else if (d.openProject !== undefined) openProject(+d.openProject);
     else if (d.go !== undefined) closeIndex(() => goToProject(+d.go));
     else if (d.nextProject !== undefined) closeDetail(() => openProject(+d.nextProject));
     else if (d.closeDetail !== undefined) closeDetail();
@@ -391,10 +502,10 @@ function bindEvents() {
 }
 
 function buildContact() {
-  $('[data-contact-links]').innerHTML = `
-    <a class="pill" href="mailto:${esc(profile.email)}">Email ${arrow}</a>
-    <a class="pill" href="${esc(profile.github)}" target="_blank" rel="noopener">GitHub ${arrow}</a>
-    <a class="pill" href="${esc(profile.linkedin)}" target="_blank" rel="noopener">LinkedIn ${arrow}</a>`;
+  $('[data-contact-links]').innerHTML = profile.links
+    .filter((link) => link.url)
+    .map((link) => `<a class="pill" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)} ${arrow}</a>`)
+    .join('');
 }
 
 function showFallback() {
@@ -422,6 +533,7 @@ async function start() {
   buildIndex();
   buildContact();
   bindEvents();
+  setupInteractions();
   const updateCursor = setupCursor();
 
   let last = performance.now();
@@ -434,6 +546,7 @@ async function start() {
     world.render();
     updateHud(world.smoothProgress);
     updateCursor();
+    audio.setSpeed(world.speed);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -443,7 +556,7 @@ async function start() {
   revealIntro();
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__app = { world, lenis, goToProject, scrollToProgress, openDetail, closeDetail, openIndex };
+    window.__app = { world, lenis, audio, goToProject, scrollToProgress, openDetail, closeDetail, openIndex, setSound };
   }
 }
 

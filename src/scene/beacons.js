@@ -20,6 +20,7 @@ import {
   UniformsUtils,
   Vector3,
 } from 'three';
+import { mistTime, withMist } from './mist.js';
 
 const OUTER_W = 6.4;
 const OUTER_H = 9.4;
@@ -156,6 +157,11 @@ const panelFragment = /* glsl */ `
     float txt = texture2D(uText, tuv).a * (1.0 - smoothstep(uReveal - 0.08, uReveal, 1.0 - uv.y));
     col = mix(col, vec3(1.0, 0.96, 0.92) * mix(0.45, 0.92, uActive), txt);
 
+    // A single diagonal glint sweeps across the glass on first arrival.
+    float sweep = uReveal * 1.7 - 0.35;
+    float sheen = exp(-pow((uv.x * 0.45 + uv.y * 0.75 - sweep) * 12.0, 2.0));
+    col += vec3(1.0, 0.95, 0.88) * sheen * 0.4 * uActive;
+
     gl_FragColor = vec4(col, 1.0);
     #include <fog_fragment>
   }`;
@@ -185,7 +191,7 @@ const beamFragment = /* glsl */ `
 
 export function createBeacons(projects, layout, maxAnisotropy) {
   const group = new Group();
-  const stone = new MeshStandardMaterial({ color: '#1c1727', roughness: 0.55, metalness: 0.35 });
+  const stone = withMist(new MeshStandardMaterial({ color: '#1c1727', roughness: 0.55, metalness: 0.35 }));
 
   const frameShape = archShape(OUTER_W, OUTER_H, BASE);
   frameShape.holes.push(archShape(INNER_W, INNER_H, BASE + FRAME));
@@ -253,6 +259,8 @@ export function createBeacons(projects, layout, maxAnisotropy) {
       fragmentShader: panelFragment,
     });
     panelMaterial.uniforms.uText.value = panelTexture(project, index, projects.length, maxAnisotropy);
+    // Shared by reference (merge() would have cloned it) so the mist drifts.
+    panelMaterial.uniforms.uMistTime = mistTime;
     const panel = new Mesh(panelGeo, panelMaterial);
     panel.userData.index = index;
     panel.position.z = -0.05;

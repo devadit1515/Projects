@@ -90,6 +90,50 @@ a {
   border-color: var(--ink);
 }
 
+.sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.sound__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+.sound__bars i {
+  width: 2px;
+  height: 100%;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: scaleY(0.2);
+  transition: transform 0.5s var(--ease);
+}
+.sound.is-on .sound__bars i {
+  animation: eq 1s ease-in-out infinite;
+}
+.sound.is-on .sound__bars i:nth-child(2) {
+  animation-duration: 0.8s;
+  animation-delay: -0.3s;
+}
+.sound.is-on .sound__bars i:nth-child(3) {
+  animation-duration: 1.2s;
+  animation-delay: -0.6s;
+}
+.sound.is-on .sound__bars i:nth-child(4) {
+  animation-duration: 0.9s;
+  animation-delay: -0.15s;
+}
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 .mask {
   display: block;
   overflow: hidden;
@@ -793,7 +837,8 @@ body.index-open .rail {
 
 @media (max-width: 720px) {
   .rail,
-  .intro__hint-extra {
+  .intro__hint-extra,
+  .sound__label {
     display: none;
   }
   .card.is-right {
@@ -823,7 +868,11 @@ body.index-open .rail {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-hint__line {
+  .scroll-hint__line,
+  .sound.is-on .sound__bars i {
     animation: none;
+  }
+  .sound.is-on .sound__bars i {
+    transform: scaleY(0.7);
   }
 }

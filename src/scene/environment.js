@@ -19,6 +19,7 @@ import {
 } from 'three';
 import { heightAt, pathX, pathEndZ } from './layout.js';
 import { createForest } from './trees.js';
+import { withMist } from './mist.js';
 
 export const palette = {
   fog: new Color('#4e2f5e'),
@@ -40,7 +41,8 @@ export const sunDirection = new Vector3(0.12, 0.07, -1).normalize();
 const glsl = (v) => `vec3(${v.toArray().map((n) => n.toFixed(4)).join(', ')})`;
 
 // Replace three's fog with a version that warms toward the sun, so distant
-// ridges fade into the same colour as the sky behind them.
+// ridges fade into the same colour as the sky behind them, and that pools
+// patchy mist in the low ground of the valley.
 export function installSunFog() {
   ShaderChunk.fog_pars_vertex = /* glsl */ `
     #ifdef USE_FOG
@@ -68,6 +70,17 @@ export function installSunFog() {
         uniform float fogNear;
         uniform float fogFar;
       #endif
+      uniform float uMistTime;
+      float mistHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+      float mistNoise( vec2 p ) {
+        vec2 i = floor( p ), f = fract( p );
+        vec2 u = f * f * ( 3.0 - 2.0 * f );
+        return mix( mix( mistHash( i ), mistHash( i + vec2( 1, 0 ) ), u.x ),
+                    mix( mistHash( i + vec2( 0, 1 ) ), mistHash( i + vec2( 1, 1 ) ), u.x ), u.y );
+      }
+      float mistFbm( vec2 p ) {
+        return mistNoise( p ) * 0.55 + mistNoise( p * 2.1 + 7.3 ) * 0.3 + mistNoise( p * 4.3 + 3.1 ) * 0.15;
+      }
     #endif`;
   ShaderChunk.fog_fragment = /* glsl */ `
     #ifdef USE_FOG
@@ -78,6 +91,14 @@ export function installSunFog() {
       #endif
       float fogSun = pow( max( dot( normalize( vFogWorldDir ), ${glsl(sunDirection)} ), 0.0 ), 5.0 );
       vec3 fogTint = mix( fogColor, ${glsl(palette.fogSun)}, fogSun );
+
+      vec3 mistPos = cameraPosition + vFogWorldDir;
+      float mistShape = mistFbm( mistPos.xz * 0.045 + vec2( uMistTime * 0.07, uMistTime * 0.03 ) );
+      float mist = smoothstep( 3.4, -0.8, mistPos.y ) * smoothstep( 0.32, 0.78, mistShape )
+        * smoothstep( 7.0, 45.0, vFogDepth ) * 0.6;
+      fogFactor = 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - mist );
+      fogTint = mix( fogTint, fogTint * 1.3 + 0.015, mist );
+
       gl_FragColor.rgb = mix( gl_FragColor.rgb, fogTint, fogFactor );
     #endif`;
 }
@@ -136,6 +157,27 @@ export function createSky() {
         star *= 0.55 + 0.45 * sin(uTime * 1.7 + s * 120.0);
         col += vec3(0.9, 0.92, 1.0) * star * 1.6;
 
+        // An occasional shooting star, somewhere ahead of the traveller.
+        float period = 6.5;
+        float slot = floor(uTime / period);
+        float age = uTime - slot * period;
+        float seed = fract(sin(slot * 91.7 + 3.1) * 43758.5453);
+        if (seed > 0.4 && age < 1.1) {
+          float az = atan(d.x, -d.z);
+          float el = asin(clamp(d.y, -1.0, 1.0));
+          vec2 dir = normalize(vec2(fract(seed * 3.7) > 0.5 ? 1.0 : -1.0, -0.3 - fract(seed * 5.1) * 0.35));
+          float travel = age / 1.1;
+          vec2 head = vec2(atan(uSunDir.x, -uSunDir.z) + (fract(seed * 13.1) - 0.5) * 1.4, 0.24 + fract(seed * 7.3) * 0.2)
+            + dir * travel * 0.3;
+          float daz = mod(az - head.x + 3.14159265, 6.2831853) - 3.14159265;
+          vec2 q = vec2(daz * cos(el), el - head.y);
+          float along = dot(q, -dir);
+          float across = abs(dot(q, vec2(-dir.y, dir.x)));
+          float trail = step(0.0, along) * pow(max(1.0 - along / 0.14, 0.0), 2.0);
+          float streak = smoothstep(0.0022, 0.0, across) * trail * sin(travel * 3.14159265);
+          col += vec3(1.0, 0.94, 0.86) * streak * 2.2;
+        }
+
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -190,7 +232,7 @@ export function createTerrain(count, quality) {
   geometry.setAttribute('color', new BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
 
-  const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0 });
+  const material = withMist(new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0 }));
   return new Mesh(geometry, material);
 }
 
@@ -225,7 +267,7 @@ export function createVegetation(count, beacons, quality) {
   const rockTarget = quality === 'low' ? 160 : 420;
   const rocks = new InstancedMesh(
     new IcosahedronGeometry(1, 0),
-    new MeshStandardMaterial({ color: palette.rock, roughness: 0.9 }),
+    withMist(new MeshStandardMaterial({ color: palette.rock, roughness: 0.9 })),
     rockTarget,
   );
   for (let i = 0; i < rockTarget; i++) {

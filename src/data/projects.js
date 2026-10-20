@@ -22,7 +22,12 @@ export const projects = names.map((name, i) => ({
 export const profile = {
   name: 'Devadit',
   role: 'Builder · Student · Placeholder role',
-  email: 'hello@example.com',
-  github: 'https://github.com/devadit1515',
-  linkedin: '#',
+  // Contact links on the final screen, in display order. A link with no url is
+  // left out, so the resume appears as soon as its file is added.
+  links: [
+    { label: 'GitHub', url: 'https://github.com/devadit1515' },
+    { label: 'LinkedIn', url: 'https://www.linkedin.com/in/devadit-jain-562080257' },
+    { label: 'Resume', url: null },
+    { label: 'Instagram', url: 'https://www.instagram.com/devadit15/' },
+  ],
 };

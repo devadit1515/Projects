@@ -10,6 +10,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { groveNoise, heightAt, pathX } from './layout.js';
+import { withMist } from './mist.js';
 
 // Low-poly trees built from a few primitives, with irregular vertices, baked
 // shading (darker undersides, lighter tips), per-tree tint and a little wind.
@@ -153,6 +154,8 @@ export function createForest({ count, zStart, zEnd, isClear, rand, sunDirection,
       transformed.z += bend * cos(phase * 0.8) * 0.022;`,
     );
   };
+
+  withMist(material);
 
   const kinds = [
     { geometry: pine(rand, 5, 0.85), share: 0.4, height: [4.5, 9], width: [0.75, 1] },

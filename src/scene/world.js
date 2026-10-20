@@ -30,27 +30,36 @@ import {
   sunDirection,
 } from './environment.js';
 import { createBeacons } from './beacons.js';
+import { mistTime } from './mist.js';
 
 const FinishShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uResolution: { value: new Vector2() } },
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uResolution: { value: new Vector2() },
+    uSpeed: { value: 0 },
+  },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
-    uniform float uTime;
+    uniform float uTime, uSpeed;
     uniform vec2 uResolution;
     varying vec2 vUv;
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main() {
       vec2 c = vUv - 0.5;
       float r2 = dot(c, c);
-      vec2 shift = c * r2 * 0.012;
-      vec3 col = vec3(
-        texture2D(tDiffuse, vUv + shift).r,
-        texture2D(tDiffuse, vUv).g,
-        texture2D(tDiffuse, vUv - shift).b
-      );
+      // Lens fringing, which opens up along with a radial blur when moving fast.
+      vec2 shift = c * r2 * (0.012 + uSpeed * 0.05);
+      float blur = uSpeed * 0.012;
+      vec3 col = vec3(0.0);
+      for (int i = 0; i < 4; i++) {
+        vec2 uv = vUv - c * blur * float(i);
+        col += vec3(texture2D(tDiffuse, uv + shift).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - shift).b);
+      }
+      col *= 0.25;
       col *= 1.0 - smoothstep(0.12, 0.62, r2) * 0.55;
       col += (hash(vUv * uResolution + fract(uTime * 7.0) * 91.0) - 0.5) * 0.05;
       gl_FragColor = vec4(col, 1.0);
@@ -134,6 +143,9 @@ export class World {
     this.roll = 0;
     this.lastYaw = null;
     this.time = 0;
+    this.speed = 0;
+    this.lastProgress = 0;
+    this.hoverZoom = 0;
 
     this.raycaster = new Raycaster();
     this.tmp = {
@@ -202,7 +214,8 @@ export class World {
     // monument is framed left of centre.
     this.wideScreen = w > 900;
     this.camera.aspect = w / h;
-    this.camera.fov = w / h < 0.8 ? 68 : 52;
+    this.baseFov = w / h < 0.8 ? 68 : 52;
+    this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
     this.finish.uniforms.uResolution.value.set(w * ratio, h * ratio);
     this.fireflies.material.uniforms.uPixelRatio.value = ratio * h * 0.003;
@@ -303,6 +316,17 @@ export class World {
       if (hit && hit.distance < 90) this.hoverIndex = hit.object.userData.index;
     }
 
+    // Speed: widen the lens and let the post pass smear a little when moving
+    // fast; ease in slightly while a monument is hovered.
+    const velocity = dt > 0 ? Math.abs(this.smoothProgress - this.lastProgress) / dt : 0;
+    this.lastProgress = this.smoothProgress;
+    this.speed = MathUtils.damp(this.speed, Math.min(velocity, 0.4), 5, dt);
+    this.hoverZoom = MathUtils.damp(this.hoverZoom, this.hoverIndex >= 0 ? 1 : 0, 3, dt);
+    const motion = this.reducedMotion ? 0 : 1;
+    this.camera.fov = this.baseFov + (Math.min(9, this.speed * 45) - this.hoverZoom * 2.2) * motion;
+    this.camera.updateProjectionMatrix();
+    this.finish.uniforms.uSpeed.value = Math.min(1, this.speed * 4) * motion;
+
     for (const item of this.beacons.items) {
       const isActive = item.index === this.activeIndex || item.index === this.focusIndex;
       item.update(this.time, dt, isActive ? 1 : 0, item.index === this.hoverIndex);
@@ -312,6 +336,7 @@ export class World {
     this.river.material.uniforms.uTime.value = this.time;
     this.fireflies.material.uniforms.uTime.value = this.time;
     this.vegetation.update(this.time);
+    mistTime.value = this.time;
     this.finish.uniforms.uTime.value = this.time;
   }
 
