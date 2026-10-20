@@ -484,11 +484,11 @@ body.index-open .rail {
 }
 .outro__kicker {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: clamp(13px, 1.1vw, 16px);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin: 0;
+  color: rgba(244, 237, 228, 0.85);
+  margin: 0 0 clamp(28px, 5vh, 44px);
 }
 .outro__title {
   font-family: var(--display);
@@ -497,7 +497,7 @@ body.index-open .rail {
   line-height: 0.95;
   letter-spacing: -0.035em;
   text-transform: uppercase;
-  margin: 0.25em 0 0.45em;
+  margin: 0 0 0.22em;
   max-width: 12ch;
   text-shadow: 0 0 60px rgba(255, 154, 92, 0.3);
 }
