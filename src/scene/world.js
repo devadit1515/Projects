@@ -103,7 +103,8 @@ export class World {
     const layout = beaconLayout(projects.length);
     this.beacons = createBeacons(projects, layout, this.renderer.capabilities.getMaxAnisotropy());
     this.scene.add(this.sky, this.terrain, this.river, this.fireflies, this.beacons.group);
-    this.scene.add(...createVegetation(projects.length, layout, quality));
+    this.vegetation = createVegetation(projects.length, layout, quality);
+    this.scene.add(...this.vegetation.objects);
 
     this.curve = buildCameraCurve(projects.length);
     this.#buildScrollMap(layout);
@@ -310,6 +311,7 @@ export class World {
     this.sky.material.uniforms.uTime.value = this.time;
     this.river.material.uniforms.uTime.value = this.time;
     this.fireflies.material.uniforms.uTime.value = this.time;
+    this.vegetation.update(this.time);
     this.finish.uniforms.uTime.value = this.time;
   }
 

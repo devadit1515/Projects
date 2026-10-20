@@ -40,6 +40,11 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
+// Low-frequency field used to cluster vegetation into groves and clearings.
+export function groveNoise(x, z) {
+  return fbm(x * 0.018, z * 0.018, 3, 11.3);
+}
+
 export function pathX(z) {
   return 16 * Math.sin(z * 0.012) + 6 * Math.sin(z * 0.031 + 1.3);
 }

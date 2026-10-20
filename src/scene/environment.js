@@ -4,7 +4,6 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
-  ConeGeometry,
   DoubleSide,
   IcosahedronGeometry,
   InstancedMesh,
@@ -19,6 +18,7 @@ import {
   Vector3,
 } from 'three';
 import { heightAt, pathX, pathEndZ } from './layout.js';
+import { createForest } from './trees.js';
 
 export const palette = {
   fog: new Color('#4e2f5e'),
@@ -30,7 +30,6 @@ export const palette = {
   floor: new Color('#2a2238'),
   slope: new Color('#3d3052'),
   high: new Color('#7a6690'),
-  tree: new Color('#16111f'),
   rock: new Color('#2c2536'),
   river: new Color('#ffb27a'),
   firefly: new Color('#ffcf8a'),
@@ -213,32 +212,15 @@ export function createVegetation(count, beacons, quality) {
       return Math.hypot(bx - x, bz - z) > 9 && segmentDistance(x, z, bx, bz, pathX(vz), vz) > 6;
     });
 
-  // Faceted look from baked per-face normals rather than flatShading, whose
-  // screen-space derivatives can produce NaN pixels on tiny distant instances.
-  const treeGeo = new ConeGeometry(1, 1, 6, 1).toNonIndexed();
-  treeGeo.translate(0, 0.5, 0);
-  treeGeo.computeVertexNormals();
-  const treeTarget = quality === 'low' ? 1100 : 2600;
-  const trees = new InstancedMesh(
-    treeGeo,
-    new MeshStandardMaterial({ color: palette.tree, roughness: 1 }),
-    treeTarget,
-  );
-  let placed = 0;
-  for (let tries = 0; placed < treeTarget && tries < treeTarget * 8; tries++) {
-    const z = zStart + (zEnd - zStart) * rand();
-    const x = pathX(z) + (rand() < 0.5 ? -1 : 1) * (8 + rand() * 70);
-    const y = heightAt(x, z);
-    if (y > 22 || !clear(x, z)) continue;
-    const h = 2.4 + rand() * 4.2;
-    const r = h * (0.22 + rand() * 0.08);
-    dummy.position.set(x, y - 0.3, z);
-    dummy.rotation.set((rand() - 0.5) * 0.1, rand() * Math.PI, (rand() - 0.5) * 0.1);
-    dummy.scale.set(r, h, r);
-    dummy.updateMatrix();
-    trees.setMatrixAt(placed++, dummy.matrix);
-  }
-  trees.count = placed;
+  const forest = createForest({
+    count: quality === 'low' ? 1300 : 3000,
+    zStart,
+    zEnd,
+    isClear: clear,
+    rand,
+    sunDirection,
+    sunColor: new Color('#ff9a62'),
+  });
 
   const rockTarget = quality === 'low' ? 160 : 420;
   const rocks = new InstancedMesh(
@@ -256,7 +238,7 @@ export function createVegetation(count, beacons, quality) {
     dummy.updateMatrix();
     rocks.setMatrixAt(i, dummy.matrix);
   }
-  return [trees, rocks];
+  return { objects: [...forest.meshes, rocks], update: forest.update };
 }
 
 // A thin ribbon of light running along the valley floor, guiding the eye.
