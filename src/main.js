@@ -20,9 +20,6 @@ window.scrollTo(0, 0);
 
 const canvas = $('.webgl');
 const els = {
-  loader: $('[data-loader]'),
-  count: $('[data-count]'),
-  bar: $('[data-bar]'),
   intro: $('[data-intro]'),
   hud: $('[data-hud]'),
   card: $('[data-card]'),
@@ -57,11 +54,6 @@ function splitChars(el) {
   el.setAttribute('aria-label', text);
   el.innerHTML = [...text].map((c) => `<span class="char" aria-hidden="true">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
   return $$('.char', el);
-}
-
-function setLoad(v) {
-  els.count.textContent = String(Math.round(v)).padStart(3, '0');
-  els.bar.style.transform = `scaleX(${v / 100})`;
 }
 
 async function loadFonts() {
@@ -307,14 +299,12 @@ function revealIntro() {
   const chars = splitChars($('[data-split]'));
   $('[data-role]').textContent = profile.role;
   gsap.set(els.intro, { visibility: 'visible' });
-  gsap.set(els.loader, { clipPath: 'inset(0% 0% 0% 0%)' });
   gsap
     .timeline()
-    .to(els.loader, { clipPath: 'inset(0% 0% 100% 0%)', duration: 1.2, ease: 'expo.inOut' })
-    .from(chars, { yPercent: 115, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, '-=0.45')
-    .from($$('[data-intro-item]'), { opacity: 0, y: 16, duration: 1, stagger: 0.08, ease: 'power3.out' }, '-=1.1')
+    .to(canvas, { opacity: 1, duration: 1.8, ease: 'power2.out' })
+    .from(chars, { yPercent: 115, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, 0.25)
+    .from($$('[data-intro-item]'), { opacity: 0, y: 16, duration: 1, stagger: 0.08, ease: 'power3.out' }, 0.7)
     .add(() => {
-      els.loader.remove();
       window.addEventListener('wheel', enter, { once: true, passive: true });
       window.addEventListener('touchmove', enter, { once: true, passive: true });
     });
@@ -408,7 +398,6 @@ function buildContact() {
 }
 
 function showFallback() {
-  els.loader.remove();
   els.intro.remove();
   canvas.remove();
   buildIndex();
@@ -418,9 +407,7 @@ function showFallback() {
 }
 
 async function start() {
-  const intro = gsap.to({ v: 0 }, { v: 30, duration: 0.8, ease: 'power2.out', onUpdate() { setLoad(this.targets()[0].v); } });
   await loadFonts();
-  await nextFrame();
 
   try {
     world = new World(canvas, projects, { quality, reducedMotion });
@@ -451,9 +438,8 @@ async function start() {
   };
   requestAnimationFrame(frame);
 
-  const progress = { v: intro.targets()[0].v };
-  intro.kill();
-  await gsap.to(progress, { v: 100, duration: 1.1, ease: 'power2.inOut', onUpdate: () => setLoad(progress.v) });
+  // Let the first frames render before fading in, so nothing pops.
+  await nextFrame();
   revealIntro();
 
   if (new URLSearchParams(location.search).has('debug')) {
