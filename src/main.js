@@ -52,23 +52,6 @@ let returnFocus = null;
 let outroShown = false;
 const audio = new Ambience();
 
-const storage = {
-  get(key) {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set(key, value) {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      /* private mode: preference just isn't remembered */
-    }
-  },
-};
-
 // Mono labels scramble through glyphs before settling on their text.
 const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/+*';
 function decode(el, duration = 0.6) {
@@ -431,15 +414,20 @@ function setupInteractions() {
   });
 
   document.addEventListener('visibilitychange', () => audio.setHidden(document.hidden));
+
+  // Browsers only let audio start from a click, tap or key press. Entering by
+  // scrolling isn't one, so sound starts on the visitor's first interaction.
+  for (const type of ['pointerdown', 'keydown', 'touchend']) {
+    window.addEventListener(type, () => audio.unlock(), { passive: true });
+  }
 }
 
 const soundButton = $('[data-sound]');
-async function setSound(on) {
+function setSound(on) {
   soundButton.classList.toggle('is-on', on);
   soundButton.setAttribute('aria-pressed', String(on));
   $('[data-sound-label]').textContent = on ? 'Sound on' : 'Sound off';
-  storage.set('devadit-sound', on ? 'on' : 'off');
-  if (on) await audio.enable();
+  if (on) audio.enable();
   else audio.disable();
 }
 
@@ -466,8 +454,8 @@ function revealIntro() {
     entered = true;
     window.removeEventListener('wheel', enter);
     window.removeEventListener('touchmove', enter);
-    // Resume sound for visitors who turned it on last time.
-    if (storage.get('devadit-sound') === 'on') setSound(true);
+    // Sound is on by default; the header toggle turns it off.
+    setSound(true);
     gsap
       .timeline()
       .to(chars, { yPercent: -115, duration: 0.8, stagger: 0.03, ease: 'expo.in' })

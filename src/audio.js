@@ -41,14 +41,22 @@ export class Ambience {
     this.lastSpeed = -1;
   }
 
-  async enable() {
+  enable() {
     if (!this.ctx) this.#build();
     this.enabled = true;
     clearTimeout(this.suspendTimer);
-    if (this.ctx.state !== 'running') await this.ctx.resume();
     const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setTargetAtTime(0.9, now, 0.6);
+    this.unlock();
+  }
+
+  // Without a user gesture the browser keeps the context suspended; calling
+  // this again from one starts it.
+  unlock() {
+    if (this.enabled && this.ctx && this.ctx.state !== 'running' && !document.hidden) {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   disable() {
