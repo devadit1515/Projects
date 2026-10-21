@@ -99,24 +99,7 @@ const written = [
   },
 ];
 
-// Stand-ins for the stops that haven't been written up yet.
-const placeholders = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta']
-  .slice(written.length)
-  .map((name) => ({
-    id: `placeholder-${name.toLowerCase()}`,
-    title: `Project ${name}`,
-    tagline: 'One-line description of what this project does and who it is for.',
-    year: '2026',
-    role: 'Role placeholder',
-    tags: ['Tag one', 'Tag two', 'Tag three'],
-    description: [
-      'Placeholder paragraph. Describe the problem this project solves and why it mattered enough to build.',
-      'Second placeholder paragraph. Explain how it works, what was hard, and what the result was.',
-    ],
-    links: { live: '#', code: '#' },
-  }));
-
-export const projects = [...written, ...placeholders].map((project, i) => ({ ...project, color: colors[i] }));
+export const projects = written.map((project, i) => ({ ...project, color: colors[i] }));
 
 export const profile = {
   name: 'Devadit',

@@ -192,6 +192,12 @@ a {
   color: rgba(244, 237, 228, 0.82);
   margin-bottom: clamp(28px, 5vh, 48px);
 }
+.intro__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
 .intro__enter {
   display: inline-flex;
   align-items: center;
@@ -222,6 +228,9 @@ a {
 }
 .intro__enter:hover svg {
   transform: translateX(5px);
+}
+.intro__resume:hover svg {
+  transform: translateY(3px);
 }
 .intro__hint {
   position: absolute;

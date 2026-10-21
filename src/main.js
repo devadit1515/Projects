@@ -83,6 +83,19 @@ function splitChars(el) {
   return $$('.char', el);
 }
 
+// Step a title's font size down until its longest word fits on one line.
+function fitTitle(el, box = el) {
+  if (!el) return;
+  el.style.fontSize = '';
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (box.scrollWidth > box.clientWidth + 1 && size > 16) {
+    el.style.fontSize = `${--size}px`;
+  }
+}
+
+const fitCardTitle = () => fitTitle($('.card__title', els.card), $('.card__title .mask', els.card));
+const fitDetailTitle = () => fitTitle($('.detail__title', els.detailPanel));
+
 async function loadFonts() {
   const fonts = ['800 100px Unbounded', '700 100px Unbounded', '500 30px "JetBrains Mono"', '400 30px "JetBrains Mono"'];
   const timeout = new Promise((resolve) => setTimeout(resolve, 4000));
@@ -146,6 +159,7 @@ function showCard(i) {
     if (i < 0) return;
     // Sit opposite the monument so the card never covers it.
     els.card.classList.toggle('is-right', world.beacons.items[i].side < 0);
+    fitCardTitle();
     gsap.from($$('.mask > *', els.card), { yPercent: 110, duration: 1.1, ease: 'expo.out' });
     gsap.from($$('[data-fade]', els.card), { opacity: 0, y: 14, duration: 0.9, stagger: 0.07, delay: 0.1, ease: 'power3.out' });
     $$('[data-decode]', els.card).forEach((el) => decode(el, 0.7));
@@ -243,6 +257,7 @@ function openDetail(i) {
   els.detailPanel.style.setProperty('--c', projects[i].color);
   els.detailPanel.scrollTop = 0;
   els.detail.hidden = false;
+  fitDetailTitle();
   document.body.classList.add('detail-open');
   lenis.stop();
   world.focusIndex = i;
@@ -475,8 +490,14 @@ function setSound(on) {
 
 /* ------------------------------------------------------------- Intro/flow */
 
+let chars = [];
+// True while the title page is up and settled, so scrolling down enters.
+let introReady = false;
+let leaving = false;
+let soundChosen = false;
+
 function revealIntro() {
-  const chars = splitChars($('[data-split]'));
+  chars = splitChars($('[data-split]'));
   gsap.set(els.intro, { visibility: 'visible' });
   gsap
     .timeline()
@@ -484,36 +505,116 @@ function revealIntro() {
     .from(chars, { yPercent: 115, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, 0.25)
     .from($$('[data-intro-item]'), { opacity: 0, y: 16, duration: 1, stagger: 0.08, ease: 'power3.out' }, 0.7)
     .add(() => decode($('[data-intro-kicker]'), 1), 0.7)
-    .add(() => {
-      window.addEventListener('wheel', enter, { once: true, passive: true });
-      window.addEventListener('touchmove', enter, { once: true, passive: true });
-    });
+    .add(() => (introReady = true));
 
   $('[data-enter]').addEventListener('click', enter);
+}
 
-  function enter() {
-    if (entered) return;
-    entered = true;
-    window.removeEventListener('wheel', enter);
-    window.removeEventListener('touchmove', enter);
-    // Sound is on by default; the header toggle turns it off.
+function enter() {
+  if (entered || leaving) return;
+  entered = true;
+  introReady = false;
+  // Sound is on by default; after that the header toggle decides.
+  if (!soundChosen) {
+    soundChosen = true;
     setSound(true);
-    gsap
-      .timeline()
-      .to(chars, { yPercent: -115, duration: 0.8, stagger: 0.03, ease: 'expo.in' })
-      .to($$('[data-intro-item]'), { opacity: 0, y: -10, duration: 0.5, stagger: 0.04 }, 0)
-      .to(els.intro, { autoAlpha: 0, duration: 0.6 }, 0.5)
-      .to(world, { introMix: 0, duration: reducedMotion ? 0.01 : 3.4, ease: 'power3.inOut' }, 0.3)
-      .add(() => {
-        els.intro.remove();
-        lenis.start();
-      }, '-=1.2')
-      .add(showHud, '-=1');
   }
+  gsap
+    .timeline()
+    .to(chars, { yPercent: -115, duration: 0.8, stagger: 0.03, ease: 'expo.in' })
+    .to($$('[data-intro-item]'), { opacity: 0, y: -10, duration: 0.5, stagger: 0.04 }, 0)
+    .to(els.intro, { autoAlpha: 0, duration: 0.6 }, 0.5)
+    .to(world, { introMix: 0, duration: reducedMotion ? 0.01 : 3.4, ease: 'power3.inOut' }, 0.3)
+    .add(() => lenis.start(), '-=1.2')
+    .add(showHud, '-=1');
+}
+
+// The way back: from the start of the path, the camera lifts to the aerial
+// shot and the title returns.
+function exitToIntro() {
+  if (!entered || leaving || detailIndex >= 0 || indexOpen) return;
+  leaving = true;
+  entered = false;
+  lenis.stop();
+  showCard(-1);
+  shownCard = -1;
+  audio.whoosh(false);
+  gsap
+    .timeline({
+      onComplete: () => {
+        leaving = false;
+        introReady = true;
+      },
+    })
+    .to([els.hud, els.rail], { autoAlpha: 0, duration: 0.6 }, 0)
+    .to(world, { introMix: 1, duration: reducedMotion ? 0.01 : 2.6, ease: 'power3.inOut' }, 0)
+    .set(els.intro, { autoAlpha: 1 }, 1.1)
+    .fromTo(chars, { yPercent: 115 }, { yPercent: 0, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, 1.1)
+    .fromTo(
+      $$('[data-intro-item]'),
+      { opacity: 0, y: 16 },
+      { opacity: 1, y: 0, duration: 1, stagger: 0.08, ease: 'power3.out' },
+      1.5,
+    );
+}
+
+// Only back out once the camera has actually settled at the start of the path.
+const canExit = () =>
+  entered && !leaving && detailIndex < 0 && !indexOpen && world.introMix === 0 && lenis.animatedScroll < 1;
+
+function bindIntroScroll() {
+  // Wheel: down on the title enters; a deliberate pull upward at the start
+  // of the path goes back. Leftover inertia from either gesture is ignored.
+  let pull = 0;
+  window.addEventListener(
+    'wheel',
+    (e) => {
+      if (!entered) {
+        if (introReady && e.deltaY > 0) enter();
+        return;
+      }
+      if (!canExit() || e.deltaY >= 0) {
+        pull = 0;
+        return;
+      }
+      pull -= e.deltaY;
+      if (pull > 160) {
+        pull = 0;
+        exitToIntro();
+      }
+    },
+    { passive: true },
+  );
+
+  // Touch: swiping up on the title enters; swiping down from the start goes back.
+  let startY = 0;
+  let startedAtTop = false;
+  window.addEventListener(
+    'touchstart',
+    (e) => {
+      startY = e.touches[0].clientY;
+      startedAtTop = canExit();
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    'touchmove',
+    (e) => {
+      const dy = e.touches[0].clientY - startY;
+      if (!entered) {
+        if (introReady && dy < -30) enter();
+      } else if (startedAtTop && dy > 80 && canExit()) {
+        startedAtTop = false;
+        exitToIntro();
+      }
+    },
+    { passive: true },
+  );
 }
 
 function showHud() {
-  gsap.set([els.hud, els.rail, els.hint], { visibility: 'visible' });
+  gsap.set([els.hud, els.rail], { autoAlpha: 1 });
+  gsap.set(els.hint, { visibility: 'visible' });
   gsap.from(els.hud.children, { y: -16, opacity: 0, duration: 1, stagger: 0.1, ease: 'power3.out' });
   gsap.from(els.rail, { opacity: 0, duration: 1.2 });
   decode($('.brand__sub'), 0.9);
@@ -521,7 +622,11 @@ function showHud() {
 }
 
 function bindEvents() {
-  window.addEventListener('resize', () => world.resize());
+  window.addEventListener('resize', () => {
+    world.resize();
+    fitCardTitle();
+    if (detailIndex >= 0) fitDetailTitle();
+  });
 
   window.addEventListener('pointermove', (e) => world.setPointer(e.clientX, e.clientY, e.target === canvas));
 
@@ -545,7 +650,7 @@ function bindEvents() {
     else if (d.goContact !== undefined) scrollToProgress(1);
     else if (d.home !== undefined) {
       e.preventDefault();
-      scrollToProgress(0);
+      if (entered && detailIndex < 0 && !indexOpen) scrollToProgress(0, exitToIntro);
     }
   });
 
@@ -567,6 +672,7 @@ function bindEvents() {
       let prev = -1;
       for (let i = 0; i < stops.length; i++) if (stops[i] < world.progress - 0.003) prev = i;
       if (prev >= 0) goToProject(prev);
+      else if (canExit()) exitToIntro();
       else scrollToProgress(0);
     } else if (e.key === 'Enter' && current >= 0 && e.target === document.body) {
       openDetail(current);
@@ -607,6 +713,7 @@ async function start() {
   buildIndex();
   buildContact();
   bindEvents();
+  bindIntroScroll();
   setupInteractions();
   const updateCursor = setupCursor();
 
