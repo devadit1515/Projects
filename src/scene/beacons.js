@@ -16,6 +16,7 @@ import {
   Shape,
   ShapeGeometry,
   SRGBColorSpace,
+  TextureLoader,
   UniformsLib,
   UniformsUtils,
   Vector3,
@@ -69,13 +70,19 @@ function panelTexture(project, index, total, maxAnisotropy) {
   ctx.strokeStyle = '#fff';
 
   ctx.textAlign = 'center';
-  ctx.font = '800 300px Unbounded';
-  ctx.lineWidth = 3;
-  ctx.strokeText(num, W / 2, H * 0.37);
-
   ctx.font = '500 28px "JetBrains Mono"';
   ctx.letterSpacing = '6px';
-  ctx.fillText(`PROJECT ${num} / ${String(total).padStart(2, '0')}`, W / 2, H * 0.37 + 80);
+  const label = `PROJECT ${num} / ${String(total).padStart(2, '0')}`;
+  if (project.image) {
+    // The screenshot takes the space of the big number; the label sits above it.
+    ctx.fillText(label, W / 2, H * 0.22);
+  } else {
+    ctx.fillText(label, W / 2, H * 0.37 + 80);
+    ctx.font = '800 300px Unbounded';
+    ctx.letterSpacing = '0px';
+    ctx.lineWidth = 3;
+    ctx.strokeText(num, W / 2, H * 0.37);
+  }
 
   ctx.textAlign = 'left';
   ctx.letterSpacing = '0px';
@@ -123,9 +130,9 @@ const panelVertex = /* glsl */ `
   }`;
 
 const panelFragment = /* glsl */ `
-  uniform sampler2D uText;
+  uniform sampler2D uText, uImage;
   uniform vec3 uColor;
-  uniform float uTime, uActive, uHover, uSeed, uReveal;
+  uniform float uTime, uActive, uHover, uSeed, uReveal, uHasImage;
   varying vec2 vUv;
   #include <fog_pars_fragment>
 
@@ -156,9 +163,21 @@ const panelFragment = /* glsl */ `
     col *= 0.9 + 0.1 * sin(uv.y * 900.0 - uTime * 3.0);
     col *= mix(0.22, 1.0, uActive) * (1.0 + uHover * 0.4);
 
-    // Hover ripples the text slightly; the reveal wipes it in from below.
+    // The reveal wipes the screenshot and text in from the top.
+    float wipe = 1.0 - smoothstep(uReveal - 0.08, uReveal, 1.0 - uv.y);
+
+    // Project screenshot, framed across the upper half of the arch at 16:10.
+    vec2 iuv = (uv - vec2(0.08, 0.38)) / vec2(0.84, 0.34);
+    vec2 edge = min(iuv, 1.0 - iuv);
+    float shotMask = uHasImage * smoothstep(0.0, 0.008, min(edge.x, edge.y));
+    // Deepen the midtones so light screenshots don't wash out under bloom.
+    vec3 shot = pow(texture2D(uImage, clamp(iuv, 0.0, 1.0)).rgb, vec3(1.8)) * 0.72;
+    shot *= mix(0.3, 1.0, uActive) * (1.0 + uHover * 0.15);
+    col = mix(col * (1.0 - 0.6 * uHasImage * step(0.0, min(edge.x, edge.y) + 0.02)), shot, shotMask * wipe);
+
+    // Hover ripples the text slightly.
     vec2 tuv = uv + vec2(sin(uv.y * 60.0 + uTime * 9.0) * 0.0025 * uHover, 0.0);
-    float txt = texture2D(uText, tuv).a * (1.0 - smoothstep(uReveal - 0.08, uReveal, 1.0 - uv.y));
+    float txt = texture2D(uText, tuv).a * wipe;
     col = mix(col, vec3(1.0, 0.96, 0.92) * mix(0.45, 0.92, uActive), txt);
 
     // A single diagonal glint sweeps across the glass on first arrival.
@@ -251,6 +270,8 @@ export function createBeacons(projects, layout, maxAnisotropy) {
         UniformsLib.fog,
         {
           uText: { value: null },
+          uImage: { value: null },
+          uHasImage: { value: project.image ? 1 : 0 },
           uColor: { value: color },
           uTime: { value: 0 },
           uActive: { value: 0 },
@@ -263,6 +284,12 @@ export function createBeacons(projects, layout, maxAnisotropy) {
       fragmentShader: panelFragment,
     });
     panelMaterial.uniforms.uText.value = panelTexture(project, index, projects.length, maxAnisotropy);
+    if (project.image) {
+      const shot = new TextureLoader().load(project.image.src);
+      shot.colorSpace = SRGBColorSpace;
+      shot.anisotropy = maxAnisotropy;
+      panelMaterial.uniforms.uImage.value = shot;
+    }
     // Shared by reference (merge() would have cloned it) so the mist drifts.
     panelMaterial.uniforms.uMistTime = mistTime;
     const panel = new Mesh(panelGeo, panelMaterial);
