@@ -10,6 +10,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const arrow = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>';
+const play = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -199,12 +200,21 @@ function detailMarkup(i) {
     </div>
     <h2 class="detail__title" id="detail-title" data-reveal>${esc(p.title)}</h2>
     <p class="detail__tagline" data-reveal>${esc(p.tagline)}</p>
-    <div class="detail__media" data-reveal><span>Image / video placeholder</span></div>
+    <div class="detail__media" data-reveal>${
+      p.image ? `<img src="${esc(p.image.src)}" alt="${esc(p.image.alt)}" decoding="async">` : '<span>Image / video placeholder</span>'
+    }</div>
     <dl class="detail__facts" data-reveal>
       <div><dt>Year</dt><dd>${esc(p.year)}</dd></div>
       <div><dt>Role</dt><dd>${esc(p.role)}</dd></div>
     </dl>
     <div class="detail__body" data-reveal>${p.description.map((d) => `<p>${esc(d)}</p>`).join('')}</div>
+    ${
+      p.links.video
+        ? `<a class="pill detail__video" href="${esc(p.links.video)}" target="_blank" rel="noopener" data-reveal>
+             <span class="detail__play">${play}</span>Watch the demo ${arrow}
+           </a>`
+        : ''
+    }
     <ul class="detail__tags" data-reveal>${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
     <div class="detail__links" data-reveal>
       <a class="pill" href="${esc(p.links.live)}" target="_blank" rel="noopener">Live site ${arrow}</a>
@@ -304,7 +314,11 @@ function showPreview(i) {
   const p = projects[i];
   panel.style.setProperty('--c', p.color);
   panel.innerHTML = `
-    <div class="index__art"><span class="index__art-label">Image placeholder</span><span class="index__art-num">${pad(i + 1)}</span></div>
+    <div class="index__art">${
+      p.image
+        ? `<img src="${esc(p.image.src)}" alt="" decoding="async">`
+        : `<span class="index__art-label">Image placeholder</span><span class="index__art-num">${pad(i + 1)}</span>`
+    }</div>
     <p class="index__p-title">${esc(p.title)}</p>
     <p class="index__p-tagline">${esc(p.tagline)}</p>
     <p class="index__p-meta">${[p.year, ...p.tags].map(esc).join(' · ')}</p>`;
