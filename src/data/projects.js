@@ -28,6 +28,25 @@ const written = [
       video: 'https://youtu.be/5cw96FgeBis',
     },
   },
+  {
+    id: 'typing-sanctuary',
+    title: 'Typing Sanctuary',
+    tagline: 'Users are verified by how they type, not just what they type.',
+    year: '2026',
+    role: 'Solo designer & engineer',
+    tags: ['Deep learning', 'Cybersecurity', 'Biometrics'],
+    image: {
+      src: '/projects/typing-sanctuary.webp',
+      alt: 'The Typing Sanctuary home page, “You type like no one else,” with a keystroke rhythm chart drawn from a typed phrase',
+    },
+    description: [
+      'Typing Sanctuary is a behavioural-biometric second factor. Identity is verified from typing rhythm alone: how long each key is held and the gaps between keys. That rhythm is turned into a personal fingerprint that cannot be faked with a stolen password.',
+      'Identity is checked at two points. At login, the password is judged by how it is typed as well as what is typed. During the session, typing is re-verified continuously, so a change of hands at the keyboard is caught mid-session. If a check fails, another factor is requested, and access is never granted by default. The keystroke data is gathered through a real-time multiplayer typing game, complete with races, leaderboards and friends.',
+      'Each burst of typing is condensed into a 128-number fingerprint by a compact CNN and BiGRU network, trained with triplet loss, the technique behind face recognition. A new user is enrolled from about a dozen samples, with no retraining. Matches are scored by a blend of distance measures inside that learned space, and only the derived fingerprint is stored, never the raw keystrokes.',
+      'Won the CREST Gold Award from the British Science Association for the accompanying research paper.',
+    ],
+    links: { live: 'https://typing-sanctuary.onrender.com', code: 'https://github.com/devadit1515/typing-sanctuary' },
+  },
 ];
 
 // Stand-ins for the stops that haven't been written up yet.
