@@ -97,9 +97,13 @@ function panelTexture(project, index, total, maxAnisotropy) {
   }
 
   ctx.globalAlpha = 0.6;
-  ctx.font = '500 24px "JetBrains Mono"';
   ctx.letterSpacing = '4px';
-  ctx.fillText([project.year, ...project.tags].join('  ·  ').toUpperCase(), pad, H - 70);
+  // One line only, so long tag lists shrink until they fit.
+  const meta = [project.year, ...project.tags].join('  ·  ').toUpperCase();
+  let size = 24;
+  do ctx.font = `500 ${size}px "JetBrains Mono"`;
+  while (ctx.measureText(meta).width > W - pad * 2 && --size > 14);
+  ctx.fillText(meta, pad, H - 70);
 
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
