@@ -523,12 +523,12 @@ function enter() {
   }
   gsap
     .timeline()
-    .to(chars, { yPercent: -115, duration: 0.8, stagger: 0.03, ease: 'expo.in' })
-    .to($$('[data-intro-item]'), { opacity: 0, y: -10, duration: 0.5, stagger: 0.04 }, 0)
-    .to(els.intro, { autoAlpha: 0, duration: 0.6 }, 0.5)
-    .to(world, { introMix: 0, duration: reducedMotion ? 0.01 : 3.4, ease: 'power3.inOut' }, 0.3)
-    .add(() => lenis.start(), '-=1.2')
-    .add(showHud, '-=1');
+    .to(chars, { yPercent: -115, duration: 0.55, stagger: 0.02, ease: 'power3.in' })
+    .to($$('[data-intro-item]'), { opacity: 0, y: -10, duration: 0.35, stagger: 0.03 }, 0)
+    .to(els.intro, { autoAlpha: 0, duration: 0.45 }, 0.3)
+    .to(world, { introMix: 0, duration: reducedMotion ? 0.01 : 1.8, ease: 'power2.inOut' }, 0.15)
+    .add(() => lenis.start(), 1.3)
+    .add(showHud, 1.1);
 }
 
 // The way back: from the start of the path, the camera lifts to the aerial
@@ -537,6 +537,8 @@ function exitToIntro() {
   if (!entered || leaving || detailIndex >= 0 || indexOpen) return;
   leaving = true;
   entered = false;
+  // Settle the last few pixels; the camera's own damping hides the snap.
+  lenis.scrollTo(0, { immediate: true, force: true });
   lenis.stop();
   showCard(-1);
   shownCard = -1;
@@ -548,21 +550,21 @@ function exitToIntro() {
         introReady = true;
       },
     })
-    .to([els.hud, els.rail], { autoAlpha: 0, duration: 0.6 }, 0)
-    .to(world, { introMix: 1, duration: reducedMotion ? 0.01 : 2.6, ease: 'power3.inOut' }, 0)
-    .set(els.intro, { autoAlpha: 1 }, 1.1)
-    .fromTo(chars, { yPercent: 115 }, { yPercent: 0, duration: 1.4, stagger: 0.05, ease: 'expo.out' }, 1.1)
+    .to([els.hud, els.rail], { autoAlpha: 0, duration: 0.4 }, 0)
+    .to(world, { introMix: 1, duration: reducedMotion ? 0.01 : 1.6, ease: 'power2.inOut' }, 0)
+    .set(els.intro, { autoAlpha: 1 }, 0.55)
+    .fromTo(chars, { yPercent: 115 }, { yPercent: 0, duration: 1, stagger: 0.035, ease: 'expo.out' }, 0.55)
     .fromTo(
       $$('[data-intro-item]'),
       { opacity: 0, y: 16 },
-      { opacity: 1, y: 0, duration: 1, stagger: 0.08, ease: 'power3.out' },
-      1.5,
+      { opacity: 1, y: 0, duration: 0.8, stagger: 0.06, ease: 'power3.out' },
+      0.8,
     );
 }
 
 // Only back out once the camera has actually settled at the start of the path.
 const canExit = () =>
-  entered && !leaving && detailIndex < 0 && !indexOpen && world.introMix === 0 && lenis.animatedScroll < 1;
+  entered && !leaving && detailIndex < 0 && !indexOpen && world.introMix === 0 && lenis.scroll < 1 && lenis.animatedScroll < 40;
 
 function bindIntroScroll() {
   // Wheel: down on the title enters; a deliberate pull upward at the start
@@ -580,7 +582,7 @@ function bindIntroScroll() {
         return;
       }
       pull -= e.deltaY;
-      if (pull > 160) {
+      if (pull > 100) {
         pull = 0;
         exitToIntro();
       }
@@ -657,7 +659,10 @@ function bindEvents() {
   });
 
   window.addEventListener('keydown', (e) => {
-    if (!entered) return;
+    if (!entered) {
+      if (introReady && ['ArrowDown', 'PageDown', ' '].includes(e.key) && e.target === document.body) enter();
+      return;
+    }
     if (e.key === 'Escape') {
       if (detailIndex >= 0) closeDetail();
       else if (indexOpen) closeIndex();
