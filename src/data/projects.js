@@ -16,8 +16,8 @@ const written = [
       alt: 'The Aloud title screen: “A voice for anyone who can speak only with their eyes,” with a Begin with eye control button',
     },
     description: [
-      'Aloud is designed for people with ALS, cerebral palsy or severe paralysis who can no longer speak or type. Speech is produced from eye blinks alone. Everything is run in a browser tab with a laptop’s built-in webcam, so eye-tracking hardware costing thousands of dollars is not needed.',
-      'Options are highlighted one at a time by an automatic scan, and a choice is made with a single held blink. Only timing is required from the user, never aim or precision. Any preset message is reached in two blinks and any letter in three. Full sentences are predicted by AI from the first few letters, every message is spoken aloud, and urgent messages are repeated until help is confirmed.',
+      'Aloud is designed for people with ALS, cerebral palsy or severe paralysis who can no longer speak or type. Speech is produced from eye blinks alone, using only a laptop’s built-in webcam in a browser tab.',
+      'Options such as “I feel,” “I need” and a spelling board are shown on screen and lit up one after another. When the wanted option is lit, it is selected by holding the eyes closed for a moment. Ready-made messages like “I’m in pain” are reached in two blinks. Anything else is spelled letter by letter, and the full sentence is suggested by AI after the first few letters. The finished message is read out loud, and urgent messages are repeated until someone responds.',
       'Blinks are detected on the device with MediaPipe face tracking. Deliberate blinks are separated from natural ones by a custom state machine, with thresholds calibrated to each user in ten seconds. The scan is paused while the eyes are closing, so slower users are never rushed. No video leaves the browser, and the core is kept fully functional offline.',
       'Won Best Overall Hack at HackJPS 2026 and runner-up at Build the Future with AI. A pilot is being discussed with Apollo Hospitals and a senior neurologist.',
     ],
