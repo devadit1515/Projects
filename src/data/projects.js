@@ -47,6 +47,56 @@ const written = [
     ],
     links: { live: 'https://typing-sanctuary.onrender.com', code: 'https://github.com/devadit1515/typing-sanctuary' },
   },
+  {
+    id: 'mango-farm',
+    title: 'Mango Farm Management',
+    tagline: 'Yield, variety and disease decisions are made for mango farmers by machine learning.',
+    year: '2025',
+    role: 'Designer & engineer',
+    tags: ['Machine learning', 'Computer vision', 'Agritech'],
+    description: [
+      'A machine-learning toolkit is built for mango farmers, covering the three decisions that shape a harvest: how much fruit the trees will yield, which variety suits the land, and whether disease is setting in.',
+      'Yield is estimated directly from photos of the trees, replacing manual counts in the orchard. The best-suited mango variety is recommended for each plot from its soil and climate data. Early signs of disease are detected and flagged before they can spread across the orchard.',
+      'Built at the TIS AI Fellowship for Global Young Leaders at MIT, and pitched to investors in the fellowship’s Market Readiness challenge. Won the CREST Gold Award from the British Science Association for the accompanying research paper.',
+    ],
+    links: {},
+  },
+  {
+    id: 'cloakroom',
+    title: 'Cloakroom',
+    tagline: 'Confidential data is masked before it reaches an LLM, and restored in the answer.',
+    year: '2026',
+    role: 'Engineering intern, EXL',
+    tags: ['AI security', 'Data privacy', 'Python'],
+    image: {
+      src: '/projects/cloakroom.webp',
+      alt: 'The Cloakroom home page, “Your data never meets the model,” with a record whose name, account, amount and condition are replaced by tokens',
+    },
+    description: [
+      'Cloakroom is a privacy layer placed in front of any LLM call. Names, account numbers, Aadhaar and PAN numbers, card numbers, amounts and medical conditions are swapped for placeholder tokens such as [PFI_ACCOUNT_1] before the model sees them, and the real values are restored in the response shown to the user.',
+      'Every request is run through four stages: detect, mask, reason and unmask. Sensitive data is tagged as personal, health or financial, and field names are read for context, so a 12-digit account number is never mistaken for an Aadhaar number. The same value is always given the same token, so relationships in the data are preserved and the model can still reason over them. The model’s output is re-scanned for leaked values, the originals are held in an encrypted vault, and only counts are written to the audit log.',
+      'Detectors, vaults and models are swapped through configuration alone, from a free local stack to AWS Comprehend, DynamoDB and Bedrock, with no paid API keys required. A browser extension brings the same masking to ChatGPT and Claude, with replies unmasked locally in the page. Developed during an internship at EXL.',
+    ],
+    links: { live: 'https://cloakroom-mu.vercel.app', code: 'https://github.com/devadit1515/cloakroom' },
+  },
+  {
+    id: 'rubriq',
+    title: 'Rubriq',
+    tagline: 'AI outputs are scored against published research, and the prompt that fixes them is written.',
+    year: '2026',
+    role: 'Engineering intern, EXL',
+    tags: ['LLM evaluation', 'NLP', 'Python'],
+    image: {
+      src: '/projects/rubriq.webp',
+      alt: 'The Rubriq home page, “Read the answer before you trust it,” with sample cases and boxes for a prompt and its output',
+    },
+    description: [
+      'Rubriq diagnoses the quality of an LLM’s output. The original prompt and the response are pasted in, every weakness is identified, and the evidence for each finding is quoted from the output itself.',
+      'The task is classified first, as summarisation, code generation, extraction, Q&A, reasoning, rewriting or creative writing. Each type is then scored on the parameters published research assigns to it, including faithfulness to the source, instruction following, relevance, readability, hallucination risk and code quality. Anything that cannot be judged reliably is labelled as such rather than guessed.',
+      'For every failure found, a complete replacement prompt is generated in the conventions of the named model family: XML tags and quote-first grounding for Claude, delimiters and literal phrasing for GPT, few-shot examples for Gemini. Everything is run locally, with no API calls and no data leaving the machine. Developed during an internship at EXL.',
+    ],
+    links: { live: 'https://rubriq-liard.vercel.app', code: 'https://github.com/devadit1515/rubriq' },
+  },
 ];
 
 // Stand-ins for the stops that haven't been written up yet.

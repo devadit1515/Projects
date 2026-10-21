@@ -768,7 +768,8 @@ body.index-open .rail {
 .detail__title {
   font-family: var(--display);
   font-weight: 800;
-  font-size: clamp(34px, 5vw, 64px);
+  /* Capped so a long single word like MANAGEMENT still fits the panel. */
+  font-size: clamp(30px, 4.4vw, 54px);
   line-height: 0.95;
   letter-spacing: -0.035em;
   text-transform: uppercase;

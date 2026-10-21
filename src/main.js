@@ -193,6 +193,11 @@ function updateHud(p) {
 function detailMarkup(i) {
   const p = projects[i];
   const next = (i + 1) % projects.length;
+  // Projects without a public site or repo simply leave those buttons out.
+  const links = [
+    ['Live site', p.links.live],
+    ['Source', p.links.code],
+  ].filter(([, url]) => url);
   return `
     <div class="detail__top" data-reveal>
       <span class="detail__num" data-decode>Project ${pad(i + 1)} / ${pad(projects.length)}</span>
@@ -200,9 +205,11 @@ function detailMarkup(i) {
     </div>
     <h2 class="detail__title" id="detail-title" data-reveal>${esc(p.title)}</h2>
     <p class="detail__tagline" data-reveal>${esc(p.tagline)}</p>
-    <div class="detail__media" data-reveal>${
-      p.image ? `<img src="${esc(p.image.src)}" alt="${esc(p.image.alt)}" decoding="async">` : '<span>Image / video placeholder</span>'
-    }</div>
+    ${
+      p.image
+        ? `<div class="detail__media" data-reveal><img src="${esc(p.image.src)}" alt="${esc(p.image.alt)}" decoding="async"></div>`
+        : ''
+    }
     <dl class="detail__facts" data-reveal>
       <div><dt>Year</dt><dd>${esc(p.year)}</dd></div>
       <div><dt>Role</dt><dd>${esc(p.role)}</dd></div>
@@ -216,10 +223,13 @@ function detailMarkup(i) {
         : ''
     }
     <ul class="detail__tags" data-reveal>${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-    <div class="detail__links" data-reveal>
-      <a class="pill" href="${esc(p.links.live)}" target="_blank" rel="noopener">Live site ${arrow}</a>
-      <a class="pill" href="${esc(p.links.code)}" target="_blank" rel="noopener">Source ${arrow}</a>
-    </div>
+    ${
+      links.length
+        ? `<div class="detail__links" data-reveal>${links
+            .map(([label, url]) => `<a class="pill" href="${esc(url)}" target="_blank" rel="noopener">${label} ${arrow}</a>`)
+            .join('')}</div>`
+        : ''
+    }
     <button class="detail__next" type="button" data-next-project="${next}" data-reveal>
       <span>Next project</span><strong>${esc(projects[next].title)}</strong>
     </button>`;
@@ -317,7 +327,7 @@ function showPreview(i) {
     <div class="index__art">${
       p.image
         ? `<img src="${esc(p.image.src)}" alt="" decoding="async">`
-        : `<span class="index__art-label">Image placeholder</span><span class="index__art-num">${pad(i + 1)}</span>`
+        : `<span class="index__art-num">${pad(i + 1)}</span>`
     }</div>
     <p class="index__p-title">${esc(p.title)}</p>
     <p class="index__p-tagline">${esc(p.tagline)}</p>
