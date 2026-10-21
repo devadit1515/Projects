@@ -186,7 +186,9 @@ function updateHud(p) {
     tick.classList.toggle('is-active', i === world.activeIndex);
   });
 
-  const outro = clamp((p - 0.955) / 0.03, 0, 1);
+  // The outro fades in over the stretch after the last project.
+  const lastStop = world.projectStops[world.projectStops.length - 1];
+  const outro = clamp((p - lastStop - (1 - lastStop) * 0.45) / ((1 - lastStop) * 0.4), 0, 1);
   setStyle(els.outro, 'opacity', outro.toFixed(3));
   setStyle(els.outro, 'visibility', outro > 0.01 ? 'visible' : 'hidden');
   if (outro > 0.01 !== outroShown) {

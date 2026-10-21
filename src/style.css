@@ -66,7 +66,7 @@ a {
 }
 
 .track {
-  height: calc(100svh * 16);
+  height: calc(100svh * 9);
 }
 
 /* Shared bits */

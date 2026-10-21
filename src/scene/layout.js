@@ -75,7 +75,7 @@ export function beaconLayout(count) {
 }
 
 export function pathEndZ(count) {
-  return FIRST_Z - (count - 1) * SPACING - 120;
+  return FIRST_Z - (count - 1) * SPACING - 45;
 }
 
 export function buildCameraCurve(count) {
@@ -85,8 +85,8 @@ export function buildCameraCurve(count) {
     points.push(new Vector3(pathX(z), heightAt(pathX(z), z) + CAMERA_HEIGHT, z));
   }
   // Outro: lift off the valley floor into an aerial view toward the sun.
-  points.push(new Vector3(pathX(endZ - 35), 12, endZ - 35));
-  points.push(new Vector3(pathX(endZ - 70), 26, endZ - 65));
-  points.push(new Vector3(pathX(endZ - 100), 40, endZ - 90));
+  points.push(new Vector3(pathX(endZ - 20), 10, endZ - 20));
+  points.push(new Vector3(pathX(endZ - 40), 22, endZ - 38));
+  points.push(new Vector3(pathX(endZ - 58), 34, endZ - 54));
   return new CatmullRomCurve3(points, false, 'centripetal');
 }
