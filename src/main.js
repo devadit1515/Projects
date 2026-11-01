@@ -11,6 +11,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const arrow = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>';
 const play = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const back = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -51,6 +52,11 @@ let detailIndex = -1;
 let indexOpen = false;
 let returnFocus = null;
 let outroShown = false;
+// Guided tour: projects picked from the list are flown to, and closing one
+// returns to the list. flightTarget is the stop the camera is flying to.
+let guided = false;
+let flightTarget = -1;
+const viewed = new Set();
 const audio = new Ambience();
 
 // Mono labels scramble through glyphs before settling on their text.
@@ -106,18 +112,49 @@ const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => req
 
 /* ---------------------------------------------------------------- Scrolling */
 
-function scrollToProgress(p, onComplete) {
+function scrollToProgress(p, onComplete, { lock = false } = {}) {
   const target = p * lenis.limit;
   const distance = Math.abs(target - lenis.scroll) / window.innerHeight;
   lenis.scrollTo(target, {
     duration: reducedMotion ? 0 : clamp(1.2 + distance * 0.22, 1.2, 4.5),
     easing: (t) => (t < 0.5 ? 8 * t ** 4 : 1 - (-2 * t + 2) ** 4 / 2),
     force: true,
+    lock,
     onComplete,
   });
 }
 
-const goToProject = (i, onComplete) => scrollToProgress(world.projectStops[i], onComplete);
+const goToProject = (i, onComplete, options) => scrollToProgress(world.projectStops[i], onComplete, options);
+
+// Fly through the valley to a project and open it on arrival. Monuments passed
+// on the way stay quiet; only the destination's card appears.
+function flyTo(i) {
+  if (world.activeIndex === i) {
+    openDetail(i);
+    return;
+  }
+  flightTarget = i;
+  // The scroll finishes before the camera does: it trails behind on its own
+  // damping, so wait for it to settle at the monument before opening.
+  const arrive = () => {
+    if (Math.abs(world.smoothProgress - world.progress) > 0.002) {
+      requestAnimationFrame(arrive);
+      return;
+    }
+    flightTarget = -1;
+    openDetail(i);
+  };
+  goToProject(i, arrive, { lock: true });
+}
+
+// Picking a project from the list starts (or continues) the guided tour.
+function startTour(i) {
+  guided = true;
+  closeIndex(() => {
+    if (!entered) enter(() => flyTo(i));
+    else flyTo(i);
+  }, true);
+}
 
 /* --------------------------------------------------------------------- HUD */
 
@@ -196,7 +233,8 @@ function updateHud(p) {
     if (outroShown) decode($('[data-outro-kicker]'), 0.9);
   }
 
-  const card = outro > 0 ? -1 : world.activeIndex;
+  let card = outro > 0 ? -1 : world.activeIndex;
+  if (flightTarget >= 0 && card !== flightTarget) card = -1;
   if (entered && card !== shownCard) {
     shownCard = card;
     showCard(card);
@@ -216,9 +254,10 @@ function detailMarkup(i) {
   ].filter(([, url]) => url);
   return `
     <div class="detail__top" data-reveal>
-      <span class="detail__num" data-decode>Project ${pad(i + 1)} / ${pad(projects.length)}</span>
+      <button class="pill detail__back" type="button" data-all-projects>${back} All projects</button>
       <button class="pill" type="button" data-close-detail data-decode-hover>Close</button>
     </div>
+    <span class="detail__num" data-decode data-reveal>Project ${pad(i + 1)} / ${pad(projects.length)}</span>
     <h2 class="detail__title" id="detail-title" data-reveal>${esc(p.title)}</h2>
     <p class="detail__tagline" data-reveal>${esc(p.tagline)}</p>
     ${
@@ -254,6 +293,8 @@ function detailMarkup(i) {
 function openDetail(i) {
   if (detailIndex >= 0) return;
   detailIndex = i;
+  viewed.add(i);
+  lastViewed = i;
   returnFocus = document.activeElement;
   els.detailPanel.innerHTML = detailMarkup(i);
   els.detailPanel.style.setProperty('--c', projects[i].color);
@@ -280,6 +321,8 @@ function openDetail(i) {
 
 function closeDetail(then) {
   if (detailIndex < 0) return;
+  // On a guided tour, finishing a project goes back to the list.
+  if (!then && guided) then = openIndex;
   world.focusIndex = -1;
   document.body.classList.remove('detail-open');
   audio.whoosh(false);
@@ -315,8 +358,14 @@ function buildIndex() {
       <li class="index__row" style="--c:${p.color}">
         <button type="button" data-go="${i}" data-preview="${i}" aria-label="${esc(p.title)}: ${esc(p.tagline)}">
           <span class="index__num">${pad(i + 1)}</span>
-          <span class="index__title">${esc(p.title)}</span>
-          <span class="index__tags">${p.tags.slice(0, 2).map(esc).join(' · ')}</span>
+          <span class="index__main">
+            <span class="index__title">${esc(p.title)}</span>
+            <span class="index__tagline">${esc(p.tagline)}</span>
+          </span>
+          <span class="index__side">
+            <span class="index__highlight">${esc(p.highlight)}</span>
+            <span class="index__status" data-status></span>
+          </span>
           <span class="index__year">${esc(p.year)}</span>
           ${rightArrow}
         </button>
@@ -346,6 +395,7 @@ function showPreview(i) {
         ? `<img src="${esc(p.image.src)}" alt="" decoding="async">`
         : `<span class="index__art-num">${pad(i + 1)}</span>`
     }</div>
+    <p class="index__p-highlight">${esc(p.highlight)}</p>
     <p class="index__p-title">${esc(p.title)}</p>
     <p class="index__p-tagline">${esc(p.tagline)}</p>
     <p class="index__p-meta">${[p.year, ...p.tags].map(esc).join(' · ')}</p>`;
@@ -356,25 +406,41 @@ function showPreview(i) {
   );
 }
 
-// Mark the project the camera is standing at.
-function markCurrent() {
-  const current = world?.activeIndex ?? -1;
+// The next unread project after the one just read, so the list can suggest
+// where to go next.
+let lastViewed = -1;
+function upNext() {
+  for (let k = 1; k <= projects.length; k++) {
+    const i = (lastViewed + k) % projects.length;
+    if (!viewed.has(i)) return i;
+  }
+  return -1;
+}
+
+// Mark where the camera stands, what has been read, and what comes next.
+function markRows() {
+  const current = entered ? (world?.activeIndex ?? -1) : -1;
+  const next = viewed.size ? upNext() : -1;
   $$('.index__row', els.indexList).forEach((row, r) => {
     $('.index__here', row)?.remove();
     if (r === current) $('.index__title', row).insertAdjacentHTML('beforeend', '<span class="index__here">Here</span>');
+    row.classList.toggle('is-viewed', viewed.has(r));
+    row.classList.toggle('is-next', r === next);
+    $('[data-status]', row).textContent = r === next ? 'Up next' : viewed.has(r) ? '✓ Viewed' : '';
   });
 }
 
 function openIndex() {
-  if (indexOpen || detailIndex >= 0) return;
+  if (indexOpen || detailIndex >= 0 || leaving) return;
   indexOpen = true;
   returnFocus = document.activeElement;
   els.index.hidden = false;
   document.body.classList.add('index-open');
   lenis.stop();
-  markCurrent();
+  markRows();
   previewIndex = -1;
-  showPreview(Math.max(0, world.activeIndex));
+  const next = upNext();
+  showPreview(guided && next >= 0 ? next : Math.max(0, entered ? world.activeIndex : 0));
   gsap.fromTo(els.index, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' });
   gsap.from($$('.index__row', els.index), { y: 24, opacity: 0, duration: 0.8, stagger: 0.04, ease: 'expo.out', delay: 0.1 });
   gsap.from('.index__preview', { opacity: 0, x: -20, duration: 0.9, ease: 'expo.out', delay: 0.15 });
@@ -383,8 +449,11 @@ function openIndex() {
   audio.whoosh(true);
 }
 
-function closeIndex(then) {
+// picked: the list closed because a project was chosen. Closing it any other
+// way ends the guided tour and leaves the visitor free to explore.
+function closeIndex(then, picked = false) {
   if (!indexOpen) return;
+  if (!picked) guided = false;
   document.body.classList.remove('index-open');
   audio.whoosh(false);
   gsap.to(els.index, {
@@ -394,7 +463,8 @@ function closeIndex(then) {
     onComplete: () => {
       els.index.hidden = true;
       indexOpen = false;
-      lenis.start();
+      // On the title page the path stays locked until the visitor enters.
+      if (entered) lenis.start();
       if (then) then();
       else returnFocus?.focus?.({ preventScroll: true });
     },
@@ -512,7 +582,9 @@ function revealIntro() {
   $('[data-enter]').addEventListener('click', enter);
 }
 
-function enter() {
+// onReady runs as soon as the path unlocks, so a chosen project's flight
+// overlaps the end of the entrance instead of waiting for it.
+function enter(onReady) {
   if (entered || leaving) return;
   entered = true;
   introReady = false;
@@ -527,7 +599,10 @@ function enter() {
     .to($$('[data-intro-item]'), { opacity: 0, y: -10, duration: 0.35, stagger: 0.03 }, 0)
     .to(els.intro, { autoAlpha: 0, duration: 0.45 }, 0.3)
     .to(world, { introMix: 0, duration: reducedMotion ? 0.01 : 1.8, ease: 'power2.inOut' }, 0.15)
-    .add(() => lenis.start(), 1.3)
+    .add(() => {
+      lenis.start();
+      if (typeof onReady === 'function') onReady();
+    }, 1.3)
     .add(showHud, 1.1);
 }
 
@@ -573,6 +648,7 @@ function bindIntroScroll() {
   window.addEventListener(
     'wheel',
     (e) => {
+      if (indexOpen) return;
       if (!entered) {
         if (introReady && e.deltaY > 0) enter();
         return;
@@ -604,6 +680,7 @@ function bindIntroScroll() {
   window.addEventListener(
     'touchmove',
     (e) => {
+      if (indexOpen) return;
       const dy = e.touches[0].clientY - startY;
       if (!entered) {
         if (introReady && dy < -30) enter();
@@ -641,13 +718,14 @@ function bindEvents() {
   });
 
   document.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-open-project], [data-go], [data-next-project], [data-close-detail], [data-open-index], [data-close-index], [data-go-contact], [data-home], [data-sound]');
+    const target = e.target.closest('[data-open-project], [data-go], [data-next-project], [data-close-detail], [data-all-projects], [data-open-index], [data-close-index], [data-go-contact], [data-home], [data-sound]');
     if (!target) return;
     const d = target.dataset;
     if (d.sound !== undefined) setSound(!audio.enabled);
     else if (d.openProject !== undefined) openProject(+d.openProject);
-    else if (d.go !== undefined) closeIndex(() => goToProject(+d.go));
-    else if (d.nextProject !== undefined) closeDetail(() => openProject(+d.nextProject));
+    else if (d.go !== undefined) startTour(+d.go);
+    else if (d.nextProject !== undefined) closeDetail(() => flyTo(+d.nextProject));
+    else if (d.allProjects !== undefined) closeDetail(openIndex);
     else if (d.closeDetail !== undefined) closeDetail();
     else if (d.openIndex !== undefined) openIndex();
     else if (d.closeIndex !== undefined) closeIndex();
@@ -659,13 +737,13 @@ function bindEvents() {
   });
 
   window.addEventListener('keydown', (e) => {
-    if (!entered) {
-      if (introReady && ['ArrowDown', 'PageDown', ' '].includes(e.key) && e.target === document.body) enter();
-      return;
-    }
     if (e.key === 'Escape') {
       if (detailIndex >= 0) closeDetail();
       else if (indexOpen) closeIndex();
+      return;
+    }
+    if (!entered) {
+      if (!indexOpen && introReady && ['ArrowDown', 'PageDown', ' '].includes(e.key) && e.target === document.body) enter();
       return;
     }
     if (detailIndex >= 0 || indexOpen) return;
@@ -688,10 +766,12 @@ function bindEvents() {
 }
 
 function buildContact() {
-  $('[data-contact-links]').innerHTML = profile.links
-    .filter((link) => link.url)
-    .map((link) => `<a class="pill" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)} ${arrow}</a>`)
-    .join('');
+  $('[data-contact-links]').innerHTML =
+    '<button class="pill outro__projects" type="button" data-open-index>All projects</button>' +
+    profile.links
+      .filter((link) => link.url)
+      .map((link) => `<a class="pill" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)} ${arrow}</a>`)
+      .join('');
 }
 
 function showFallback() {
@@ -744,7 +824,19 @@ async function start() {
   revealIntro();
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__app = { world, lenis, audio, goToProject, scrollToProgress, openDetail, closeDetail, openIndex, setSound };
+    window.__app = {
+      world,
+      lenis,
+      audio,
+      goToProject,
+      scrollToProgress,
+      openDetail,
+      closeDetail,
+      openIndex,
+      setSound,
+      startTour,
+      state: () => ({ entered, guided, indexOpen, detailIndex, flightTarget, viewed: [...viewed], shownCard }),
+    };
   }
 }
 

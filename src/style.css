@@ -89,6 +89,11 @@ a {
   color: var(--bg);
   border-color: var(--ink);
 }
+/* Main navigation: a touch brighter than the other header pills. */
+.pill--key {
+  border-color: rgba(244, 237, 228, 0.5);
+  background: rgba(244, 237, 228, 0.1);
+}
 
 .sound {
   display: inline-flex;
@@ -231,17 +236,29 @@ a {
 .intro__resume:hover svg {
   transform: translateY(3px);
 }
+/* The guided route: the one obvious thing to click. */
+.intro__primary,
+.outro__projects {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.intro__primary:hover,
+.outro__projects:hover {
+  background: #fff;
+  border-color: #fff;
+}
 .intro__scroll {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  margin-top: clamp(32px, 6vh, 56px);
+  margin-top: clamp(28px, 5vh, 48px);
   font-family: var(--mono);
-  font-size: 14px;
-  letter-spacing: 0.28em;
+  font-size: 12px;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: rgba(244, 237, 228, 0.8);
   text-shadow: 0 1px 14px rgba(7, 6, 15, 0.6);
 }
 .intro__scroll-line {
@@ -535,7 +552,8 @@ body.index-open .rail {
 .index {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  /* Above the title page, so the list can open from there too. */
+  z-index: 45;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -546,6 +564,12 @@ body.index-open .rail {
 }
 .index[hidden] {
   display: none;
+}
+/* Nothing should ghost through the list. !important beats GSAP's inline opacity. */
+body.index-open .hud,
+body.index-open .card,
+body.index-open .intro {
+  opacity: 0 !important;
 }
 .index__head {
   display: flex;
@@ -566,6 +590,14 @@ body.index-open .rail {
   color: var(--ink);
 }
 .index__count {
+  color: var(--muted);
+}
+.index__hint {
+  margin-left: clamp(8px, 2vw, 28px);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .index__body {
@@ -627,6 +659,14 @@ body.index-open .rail {
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
 }
+.index__p-highlight {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c);
+  margin: 22px 0 -12px;
+}
 .index__p-title {
   font-family: var(--display);
   font-weight: 700;
@@ -686,7 +726,7 @@ body.index-open .rail {
 }
 .index__num,
 .index__year,
-.index__tags {
+.index__status {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -695,6 +735,45 @@ body.index-open .rail {
 }
 .index__year {
   text-align: right;
+}
+.index__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.index__tagline {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+.index__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+.index__highlight {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--c);
+  padding: 5px 9px;
+  border: 1px solid color-mix(in oklab, var(--c) 45%, transparent);
+  border-radius: 999px;
+}
+.index__status:empty {
+  display: none;
+}
+.index__row.is-next .index__status {
+  color: var(--ink);
+}
+.index__row.is-viewed:not(.is-preview) .index__title {
+  opacity: 0.7;
 }
 .index__title {
   display: flex;
@@ -707,8 +786,16 @@ body.index-open .rail {
   text-transform: uppercase;
   transition: transform 0.6s var(--ease), color 0.4s var(--ease);
 }
+.index__title {
+  position: relative;
+}
+/* Hangs in the gutter so titles line up with their taglines. */
 .index__title::before {
   content: '';
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  margin-top: -3.5px;
   flex: none;
   width: 7px;
   height: 7px;
@@ -780,7 +867,21 @@ body.index-open .rail {
   align-items: center;
   margin-bottom: clamp(28px, 6vh, 56px);
 }
+.detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail__back svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
 .detail__num {
+  display: block;
+  margin-bottom: 16px;
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.16em;
@@ -1069,12 +1170,39 @@ body.index-open .rail {
     align-items: start;
   }
   .index__preview,
-  .index__tags,
-  .index__year {
+  .index__year,
+  .index__hint-extra {
     display: none;
+  }
+  .index__head {
+    flex-wrap: wrap;
+  }
+  .index__hint {
+    order: 3;
+    flex-basis: 100%;
+    margin: 6px 0 0;
   }
   .index__row button {
     grid-template-columns: 3ch 1fr 16px;
+    grid-template-areas:
+      'num main arrow'
+      '. side .';
+    row-gap: 10px;
+  }
+  .index__num {
+    grid-area: num;
+  }
+  .index__main {
+    grid-area: main;
+  }
+  .index__side {
+    grid-area: side;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .index__arrow {
+    grid-area: arrow;
   }
   .detail__backdrop {
     background: rgba(7, 6, 15, 0.5);
