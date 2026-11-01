@@ -149,6 +149,10 @@ a {
   display: block;
 }
 
+.word {
+  display: inline-block;
+  white-space: nowrap;
+}
 .char {
   display: inline-block;
   will-change: transform;
@@ -179,22 +183,38 @@ a {
   color: var(--muted);
   margin: 0;
 }
-.intro__title {
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: clamp(56px, 16vw, 250px);
-  line-height: 0.9;
-  letter-spacing: -0.035em;
-  text-transform: uppercase;
-  margin: 0 0 0.14em;
-  overflow: hidden;
-  padding: 0.04em 0.02em 0.06em;
+/* The name sits where the header logo will be once inside, so it hands over
+   without a jump. */
+.intro__brand {
+  position: absolute;
+  top: calc(var(--gutter) * 0.8);
+  left: var(--gutter);
+  margin: 0;
+  text-align: left;
 }
-/* Sits under the name, over the brighter part of the sky. */
-.intro__title + .intro__kicker {
+.intro__kicker {
   font-size: 12px;
   color: rgba(244, 237, 228, 0.82);
-  margin-bottom: clamp(28px, 5vh, 48px);
+  margin-bottom: clamp(16px, 2.6vh, 24px);
+}
+.intro__title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(38px, 6vw, 92px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0;
+  overflow: hidden;
+  padding: 0.04em 0.02em 0.08em;
+}
+.intro__lede {
+  max-width: 34ch;
+  margin: clamp(14px, 2.4vh, 22px) 0 clamp(28px, 5vh, 44px);
+  font-size: clamp(16px, 1.45vw, 20px);
+  line-height: 1.5;
+  color: rgba(244, 237, 228, 0.82);
+  text-wrap: balance;
 }
 .intro__actions {
   display: flex;

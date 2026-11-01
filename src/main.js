@@ -85,7 +85,12 @@ function decode(el, duration = 0.6) {
 function splitChars(el) {
   const text = el.textContent;
   el.setAttribute('aria-label', text);
-  el.innerHTML = [...text].map((c) => `<span class="char" aria-hidden="true">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
+  // Letters animate one by one, but each word stays whole so lines only
+  // break between words.
+  el.innerHTML = text
+    .split(' ')
+    .map((word) => `<span class="word">${[...word].map((c) => `<span class="char" aria-hidden="true">${esc(c)}</span>`).join('')}</span>`)
+    .join(' ');
   return $$('.char', el);
 }
 
@@ -698,7 +703,7 @@ function showHud() {
   gsap.set(els.hint, { visibility: 'visible' });
   gsap.from(els.hud.children, { y: -16, opacity: 0, duration: 1, stagger: 0.1, ease: 'power3.out' });
   gsap.from(els.rail, { opacity: 0, duration: 1.2 });
-  decode($('.brand__sub'), 0.9);
+  decode($('.brand__sub', els.hud), 0.9);
   shownCard = -2;
 }
 
