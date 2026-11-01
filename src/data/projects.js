@@ -48,20 +48,6 @@ const written = [
     links: { live: 'https://typing-sanctuary.onrender.com', code: 'https://github.com/devadit1515/typing-sanctuary' },
   },
   {
-    id: 'mango-farm',
-    title: 'Mango Farm Management',
-    tagline: 'Yield, variety and disease decisions are made for mango farmers by machine learning.',
-    year: '2025',
-    role: 'Designer & engineer',
-    tags: ['Machine learning', 'Computer vision', 'Agritech'],
-    description: [
-      'A machine-learning toolkit is built for mango farmers, covering the three decisions that shape a harvest: how much fruit the trees will yield, which variety suits the land, and whether disease is setting in.',
-      'Yield is estimated directly from photos of the trees, replacing manual counts in the orchard. The best-suited mango variety is recommended for each plot from its soil and climate data. Early signs of disease are detected and flagged before they can spread across the orchard.',
-      'Built at the TIS AI Fellowship for Global Young Leaders at MIT, and pitched to investors in the fellowship’s Market Readiness challenge. Won the CREST Gold Award from the British Science Association for the accompanying research paper.',
-    ],
-    links: {},
-  },
-  {
     id: 'cloakroom',
     title: 'Cloakroom',
     tagline: 'Confidential data is masked before it reaches an LLM, and restored in the answer.',
@@ -96,6 +82,20 @@ const written = [
       'For every failure found, a complete replacement prompt is generated in the conventions of the named model family: XML tags and quote-first grounding for Claude, delimiters and literal phrasing for GPT, few-shot examples for Gemini. Everything is run locally, with no API calls and no data leaving the machine. Developed during an internship at EXL.',
     ],
     links: { live: 'https://rubriq-liard.vercel.app', code: 'https://github.com/devadit1515/rubriq' },
+  },
+  {
+    id: 'mango-farm',
+    title: 'Mango Farm Management',
+    tagline: 'Yield, variety and disease decisions are made for mango farmers by machine learning.',
+    year: '2025',
+    role: 'Designer & engineer',
+    tags: ['Machine learning', 'Computer vision', 'Agritech'],
+    description: [
+      'A machine-learning toolkit is built for mango farmers, covering the three decisions that shape a harvest: how much fruit the trees will yield, which variety suits the land, and whether disease is setting in.',
+      'Yield is estimated directly from photos of the trees, replacing manual counts in the orchard. The best-suited mango variety is recommended for each plot from its soil and climate data. Early signs of disease are detected and flagged before they can spread across the orchard.',
+      'Built at the TIS AI Fellowship for Global Young Leaders at MIT, and pitched to investors in the fellowship’s Market Readiness challenge. Won the CREST Gold Award from the British Science Association for the accompanying research paper.',
+    ],
+    links: {},
   },
 ];
 
