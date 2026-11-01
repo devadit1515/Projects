@@ -34,7 +34,7 @@ const written = [
     title: 'Typing Sanctuary',
     tagline: 'Users are verified by how they type, not just what they type.',
     highlight: 'CREST Gold Award',
-    year: '2026',
+    year: '2025–2026',
     role: 'Solo designer & engineer',
     tags: ['Deep learning', 'Cybersecurity', 'Biometrics'],
     image: {
