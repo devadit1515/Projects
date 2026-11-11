@@ -1,8 +1,12 @@
 import Lenis from 'lenis';
 import gsap from 'gsap';
+import { inject } from '@vercel/analytics';
 import { World } from './scene/world.js';
 import { Ambience } from './audio.js';
 import { projects, profile } from './data/projects.js';
+
+// Initialize Vercel Web Analytics
+inject();
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
